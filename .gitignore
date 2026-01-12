@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.git
+.mypy_cache
+.pytest_cache
+.hypothesis
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environments
+miniconda/
+anaconda/
+share/python-wheels/
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build
+build/
+dist/
+*.egg-info/
+MANIFEST
+
+# Project specific output
+output_*/
+*.usd
+*.png
+*.jpg
+assets/environments/background.usd
+assets/materials/default.mdl
+
+# Mac
+.DS_Store

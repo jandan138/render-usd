@@ -1,0 +1,17 @@
+name: render-usd
+channels:
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+    - torch==2.4.0 --index-url https://download.pytorch.org/whl/cu118
+    - isaacsim==4.1.0 --extra-index-url https://pypi.nvidia.com
+    - isaacsim-extscache-physics==4.1.0 --extra-index-url https://pypi.nvidia.com
+    - isaacsim-extscache-kit==4.1.0 --extra-index-url https://pypi.nvidia.com
+    - isaacsim-extscache-kit-sdk==4.1.0 --extra-index-url https://pypi.nvidia.com
+    - opencv-python
+    - tqdm
+    - natsort
+    - numpy
+    - -e .

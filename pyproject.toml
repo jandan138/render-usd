@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "render_usd"
+version = "0.1.0"
+description = "USD Rendering Pipeline for Isaac Sim"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "opencv-python",
+    "tqdm",
+    "natsort",
+]
+
+[project.scripts]
+render-usd = "render_usd.cli:main"

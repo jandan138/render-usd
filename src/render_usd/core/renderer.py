@@ -8,25 +8,46 @@ from typing import Tuple, List, Optional
 
 import omni
 import omni.kit.commands
-from pxr import Usd, UsdLux
+from pxr import Usd
 from omni.isaac.core.utils.stage import add_reference_to_stage
 from omni.isaac.core.utils.prims import delete_prim, create_prim
 from omni.isaac.core.utils.semantics import add_update_semantics, remove_all_semantics
 
 from render_usd.utils.common_utils.path_utils import find_all_files_in_folder
-from render_usd.utils.common_utils.sim_utils import init_world, set_camera_look_at, init_camera, setup_camera, get_src
 from render_usd.utils.common_utils.images_utils import draw_bbox2d
 from render_usd.utils.usd_utils.prim_utils import compute_bbox, set_prim_cast_shadow_true
 from render_usd.utils.usd_utils.stage_utils import get_all_mesh_prims_from_scope, switch_all_lights
 from render_usd.utils.usd_utils.mdl_utils import fix_mdls
-from render_usd.config.settings import DEFAULT_MDL_PATH, DEFAULT_ENVIRONMENT_PATH
+from render_usd.config.settings import DEFAULT_MDL_PATH
+
+# New Core Modules
+from render_usd.core.scene import init_world, setup_environment
+from render_usd.core.camera import init_camera, setup_camera, set_camera_look_at, get_src
 
 class RenderManager:
+    """
+    Manages the rendering process for USD objects and scenes.
+    """
     def __init__(self, app=None):
+        """
+        Initialize the RenderManager.
+
+        Args:
+            app: The simulation application instance (optional).
+        """
         self.app = app
         self.world = init_world()
 
     def compute_2d_bbox_area(self, bbox2d_data: Tuple[int, float, float, float, float, float]) -> float:
+        """
+        Compute the area of a 2D bounding box.
+
+        Args:
+            bbox2d_data: Tuple containing (id, x_min, y_min, x_max, y_max, alpha).
+
+        Returns:
+            float: The calculated area.
+        """
         width = bbox2d_data[3] - bbox2d_data[1]
         height = bbox2d_data[4] - bbox2d_data[2]
         area = width * height
@@ -37,6 +58,16 @@ class RenderManager:
         bbox2d_tight: Tuple[int, float, float, float, float, float], 
         bbox2d_loose: Tuple[int, float, float, float, float, float]
     ) -> float:
+        """
+        Compute the ratio between the areas of tight and loose 2D bounding boxes.
+
+        Args:
+            bbox2d_tight: Tight 2D bounding box data.
+            bbox2d_loose: Loose 2D bounding box data.
+
+        Returns:
+            float: The area ratio (tight / loose). Returns 0.0 if loose area is 0.
+        """
         tight_area = self.compute_2d_bbox_area(bbox2d_tight)
         loose_area = self.compute_2d_bbox_area(bbox2d_loose)
         if loose_area > 0:
@@ -52,21 +83,22 @@ class RenderManager:
         sample_number=4,
         init_azimuth_angle=0,
     ):
+        """
+        Render thumbnails for objects without a background (using a default environment).
+
+        Args:
+            object_usd_paths: List of paths to the object USD files.
+            thumbnail_wo_bg_dir: Directory to save the rendered thumbnails.
+            show_bbox2d: Whether to draw 2D bounding boxes on the output images.
+            sample_number: Number of views to render per object.
+            init_azimuth_angle: Initial azimuth angle for the camera.
+        """
         # Light settings
-        # world = init_world() # Already inited in __init__
         if not self.world:
             self.world = init_world()
             
-        # Try to load environment, fallback to Dome Light if failed or file missing
-        env_path = str(DEFAULT_ENVIRONMENT_PATH)
-        if os.path.exists(env_path):
-             add_reference_to_stage(env_path, "/World/environment")
-        else:
-             print(f"[RenderManager] Environment file not found at {env_path}, creating default Dome Light.")
-             stage = omni.usd.get_context().get_stage()
-             dome_light = UsdLux.DomeLight.Define(stage, "/World/default_dome_light")
-             dome_light.CreateIntensityAttr(1000)
-             dome_light.CreateTextureFormatAttr(UsdLux.Tokens.latlong)
+        # Setup Environment (Load USD or Fallback Dome Light)
+        setup_environment()
         
         # Camera settings
         cameras = []
@@ -97,7 +129,7 @@ class RenderManager:
                 distance = np.linalg.norm(bbox_max - bbox_min) * 1.0
                 set_camera_look_at(cameras[i], center, azimuth=azimuth, elevation=elevation, distance=distance)
                 
-            for _ in range(100): # Reduced from 1000 for efficiency if possible, but keeping logic similar. Original: 1000
+            for _ in range(100): 
                  self.world.step(render=False)
             for _ in range(8):
                  self.world.step(render=True)
@@ -119,6 +151,15 @@ class RenderManager:
             delete_prim(show_prim_path)
 
     def render_thumbnail_with_bg(self, scene_usd_path, object_usd_dir, thumbnail_with_bg_dir, show_bbox2d=True):
+        """
+        Render thumbnails for objects within a scene background.
+
+        Args:
+            scene_usd_path: Path to the scene USD file.
+            object_usd_dir: Directory containing object models (expected structure: object_usd_dir/models/).
+            thumbnail_with_bg_dir: Directory to save the rendered thumbnails.
+            show_bbox2d: Whether to draw 2D bounding boxes on the output images.
+        """
         # Auto exposure
         omni.kit.commands.execute('ChangeSetting', path='/rtx/post/histogram/enabled', value=True)
         omni.kit.commands.execute('ChangeSetting', path='/rtx/post/histogram/whiteScale', value=10.0)
@@ -170,7 +211,7 @@ class RenderManager:
                 elevation = 35 if i < sample_number / 2 else -35
                 set_camera_look_at(cameras[i], center, azimuth=azimuth, elevation=elevation, distance=distance)
                 
-            for _ in range(100): # Reduced from 1000
+            for _ in range(100): 
                  self.world.step(render=False)
             for _ in range(8):
                  self.world.step(render=True)

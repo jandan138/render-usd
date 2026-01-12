@@ -1,5 +1,7 @@
 # Development Guide
 
+[中文版](development_zh.md)
+
 ## Contributing
 
 We welcome contributions! Please follow these steps:

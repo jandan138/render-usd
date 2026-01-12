@@ -1,5 +1,7 @@
 # Usage Guide
 
+[中文版](usage_zh.md)
+
 ## Command Line Interface (CLI)
 
 The primary entry point for the tool is `src/render_usd/cli.py`. You can execute it using `python -m render_usd.cli`.

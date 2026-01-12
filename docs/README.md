@@ -2,6 +2,8 @@
 
 Welcome to the **Render USD** project documentation. This library provides a comprehensive toolkit for rendering USD (Universal Scene Description) assets using NVIDIA Isaac Sim.
 
+[中文版](README_zh.md)
+
 ## 📚 Contents
 
 ### 1. [Getting Started](getting_started.md)

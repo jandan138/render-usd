@@ -1,5 +1,7 @@
 # Architecture Overview
 
+[中文版](architecture_zh.md)
+
 ## System Design
 
 `render-usd` is designed as a modular rendering pipeline built on top of NVIDIA Isaac Sim's Python API. It separates the concerns of scene management, camera control, and high-level rendering flow.

@@ -1,5 +1,7 @@
 # Getting Started
 
+[中文版](getting_started_zh.md)
+
 ## Prerequisites
 
 Before installing `render-usd`, ensure you have the following requirements met:

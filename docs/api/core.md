@@ -1,5 +1,7 @@
 # Core API Reference
 
+[中文版](core_zh.md)
+
 This section documents the core modules responsible for the rendering pipeline.
 
 ## Renderer

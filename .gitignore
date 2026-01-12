@@ -54,3 +54,6 @@ assets/materials/default.mdl
 
 # Mac
 .DS_Store
+
+# Large Files
+miniconda.sh

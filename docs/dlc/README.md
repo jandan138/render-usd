@@ -36,12 +36,16 @@ To use these scripts, your cluster environment must meet the following criteria:
 
 ## Configuration
 
-You can customize the job submission by setting environment variables before running `submit_batch.py`:
+You can customize the job submission by setting environment variables before running `submit_batch.py`. It is **CRITICAL** to verify these values against your DLC environment.
 
-*   `DLC_WORKSPACE_ID`: Your DLC workspace ID.
-*   `DLC_RESOURCE_ID`: Resource quota ID.
-*   `DLC_IMAGE`: Docker image address.
-*   `DLC_CODE_ROOT`: Path where the code is mounted in the container.
+*   `DLC_WORKSPACE_ID`: Your DLC workspace ID (default: `270969`).
+*   `DLC_RESOURCE_ID`: Resource quota ID (default: `quotalplclkpgjgv`).
+*   `DLC_IMAGE`: Docker image address (default: `pj4090acr-registry-vpc.cn-beijing.cr.aliyuncs.com/pj4090/yangsizhe:isaacsim41-cuda118`).
+*   `DLC_CODE_ROOT`: Path where the code is mounted in the container (default: `/cpfs/shared/simulation/zhuzihou/dev/render-usd`).
+
+### Data Sources
+The `launch_job.sh` script uses specific data source IDs by default: `d-phhmdh73h3zzv7pqh0,d-r70bzlwqnstu3rg55l,d-d49o5g0h2818sw8j1g,d-8wz4emfs21s5ajs9oz`.
+Ensure these are correct for your dataset or pass them as the 4th argument to `launch_job.sh`.
 
 ## Example
 

@@ -11,8 +11,11 @@ if [ -f "/cpfs/user/caopeizhou/.bashrc" ]; then
     source /cpfs/user/caopeizhou/.bashrc
 fi
 
-# Activate environment if needed (legacy behavior preserved)
-# source activate omniscenes || echo "Conda env omniscenes not found, using default"
+# Initialize conda for shell interaction
+eval "$(conda shell.bash hook)"
+
+# Activate environment
+conda activate render-usd || echo "Conda env render-usd not found, attempting to create or use default"
 
 # Setup Python path
 export PYTHONPATH=$PYTHONPATH:$CODE_ROOT/src

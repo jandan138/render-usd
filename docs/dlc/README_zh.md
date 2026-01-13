@@ -36,12 +36,16 @@
 
 ## 配置
 
-您可以在运行 `submit_batch.py` 之前通过设置环境变量来自定义作业提交：
+您可以在运行 `submit_batch.py` 之前通过设置环境变量来自定义作业提交。**务必**根据您的 DLC 环境验证这些值。
 
-*   `DLC_WORKSPACE_ID`: 您的 DLC 工作区 ID。
-*   `DLC_RESOURCE_ID`: 资源配额 ID。
-*   `DLC_IMAGE`: Docker 镜像地址。
-*   `DLC_CODE_ROOT`: 代码在容器中挂载的路径。
+*   `DLC_WORKSPACE_ID`: 您的 DLC 工作区 ID (默认: `270969`)。
+*   `DLC_RESOURCE_ID`: 资源配额 ID (默认: `quotalplclkpgjgv`)。
+*   `DLC_IMAGE`: Docker 镜像地址 (默认: `pj4090acr-registry-vpc.cn-beijing.cr.aliyuncs.com/pj4090/yangsizhe:isaacsim41-cuda118`)。
+*   `DLC_CODE_ROOT`: 代码在容器中挂载的路径 (默认: `/cpfs/shared/simulation/zhuzihou/dev/render-usd`)。
+
+### 数据源 (Data Sources)
+`launch_job.sh` 脚本默认使用特定的数据源 ID：`d-phhmdh73h3zzv7pqh0,d-r70bzlwqnstu3rg55l,d-d49o5g0h2818sw8j1g,d-8wz4emfs21s5ajs9oz`。
+请确保这些 ID 对您的数据集是正确的，或者将其作为第 4 个参数传递给 `launch_job.sh`。
 
 ## 示例
 

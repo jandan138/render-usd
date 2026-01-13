@@ -6,16 +6,28 @@ CHUNK_TOTAL=$2
 CODE_ROOT=${DLC_CODE_ROOT:-"/cpfs/shared/simulation/zhuzihou/dev/render-usd"}
 
 # Setup environment
-# Source bashrc if needed for conda
-if [ -f "/cpfs/user/caopeizhou/.bashrc" ]; then
-    source /cpfs/user/caopeizhou/.bashrc
+# 1. Try to use the local miniconda installed in the project directory (Most Robust)
+LOCAL_CONDA="$CODE_ROOT/miniconda/bin/activate"
+if [ -f "$LOCAL_CONDA" ]; then
+    echo "Found local miniconda at $LOCAL_CONDA, activating..."
+    source "$LOCAL_CONDA" render-usd
+else
+    # 2. Fallback to system conda (e.g. from .bashrc or Docker image)
+    echo "Local miniconda not found, trying system conda..."
+    if [ -f "/cpfs/user/caopeizhou/.bashrc" ]; then
+        source /cpfs/user/caopeizhou/.bashrc
+    fi
+    eval "$(conda shell.bash hook)"
+    conda activate render-usd || echo "WARNING: Failed to activate render-usd env"
 fi
 
-# Initialize conda for shell interaction
-eval "$(conda shell.bash hook)"
-
-# Activate environment
-conda activate render-usd || echo "Conda env render-usd not found, attempting to create or use default"
+# 3. Ensure the package is installed
+if ! python -c "import render_usd" &> /dev/null; then
+    echo "Package 'render-usd' not found in current environment. Installing..."
+    pip install -e "$CODE_ROOT"
+else
+    echo "Package 'render-usd' is already installed."
+fi
 
 # Setup Python path
 export PYTHONPATH=$PYTHONPATH:$CODE_ROOT/src

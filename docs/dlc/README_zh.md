@@ -34,7 +34,27 @@
     *   **数据**: 输入资产和输出目录必须可访问（例如 `/cpfs/user/...` 或 OSS 路径）。
 3.  **Docker 镜像**: 有效的 Isaac Sim 镜像，支持 Python 环境（例如 `pj4090/yangsizhe:isaacsim41-cuda118`）。
 
-## 配置
+### 3. 本地测试 (Local Testing)
+在提交到 DLC 之前，您可以在本地运行脚本以验证环境和渲染逻辑。
+
+**渲染单个文件:**
+```bash
+bash scripts/dlc/run_task.sh single /path/to/asset.usd [output_dir]
+```
+
+**运行批量分块 (试运行):**
+```bash
+# 处理 100 个分块中的第 0 个 (将扫描资产但在本地机器上运行)
+bash scripts/dlc/run_task.sh 0 100
+```
+
+**原位渲染 (In-place Rendering):**
+如果希望将渲染图像保存在与 USD 文件相同的目录中（而不是单独的输出文件夹），请使用 "inplace" 作为保存目录参数：
+```bash
+bash scripts/dlc/run_task.sh 0 1 "/path/to/assets" "inplace"
+```
+
+### 4. DLC 环境变量配置
 
 您可以在运行 `submit_batch.py` 之前通过设置环境变量来自定义作业提交。**务必**根据您的 DLC 环境验证这些值。
 

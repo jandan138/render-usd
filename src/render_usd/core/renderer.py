@@ -78,7 +78,7 @@ class RenderManager:
     def render_thumbnail_wo_bg(
         self,
         object_usd_paths: List[Path], 
-        thumbnail_wo_bg_dir: Path, 
+        thumbnail_wo_bg_dir: Optional[Path], 
         show_bbox2d=True,
         sample_number=4,
         init_azimuth_angle=0,
@@ -88,7 +88,7 @@ class RenderManager:
 
         Args:
             object_usd_paths: List of paths to the object USD files.
-            thumbnail_wo_bg_dir: Directory to save the rendered thumbnails.
+            thumbnail_wo_bg_dir: Directory to save the rendered thumbnails. If None, save in the same directory as the USD file.
             show_bbox2d: Whether to draw 2D bounding boxes on the output images.
             sample_number: Number of views to render per object.
             init_azimuth_angle: Initial azimuth angle for the camera.
@@ -109,9 +109,14 @@ class RenderManager:
 
         for object_usd_path in tqdm(object_usd_paths, desc="Rendering objects"):
             object_usd_path = Path(object_usd_path)
-            object_name = object_usd_path.parent.name
-            save_dir = thumbnail_wo_bg_dir / object_name 
-            has_rendered = os.path.exists(save_dir) and len(os.listdir(save_dir)) == sample_number
+            object_name = object_usd_path.stem
+            
+            if thumbnail_wo_bg_dir is None:
+                save_dir = object_usd_path.parent
+            else:
+                save_dir = thumbnail_wo_bg_dir / object_name 
+
+            has_rendered = os.path.exists(save_dir) and len([f for f in os.listdir(save_dir) if f.startswith(object_name) and f.endswith('.png')]) >= sample_number
             if has_rendered:
                 continue
             

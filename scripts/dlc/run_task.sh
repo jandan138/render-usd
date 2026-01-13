@@ -1,7 +1,4 @@
 #!/bin/bash
-CHUNK_ID=$1
-CHUNK_TOTAL=$2
-
 # Code root should match what is mounted/expected
 CODE_ROOT=${DLC_CODE_ROOT:-"/cpfs/shared/simulation/zhuzihou/dev/render-usd"}
 
@@ -34,14 +31,32 @@ export PYTHONPATH=$PYTHONPATH:$CODE_ROOT/src
 export OMNI_KIT_ACCEPT_EULA=YES
 export PYTHONUNBUFFERED=1
 
-echo "Running Render Task: Chunk $CHUNK_ID / $CHUNK_TOTAL"
+# Check mode
+if [ "$1" == "single" ]; then
+    # Single file mode for testing
+    # Usage: bash run_task.sh single <usd_path> <output_dir>
+    USD_PATH=$2
+    OUTPUT_DIR=${3:-"$CODE_ROOT/output_test_single"}
+    
+    echo "Running Single Render Task: $USD_PATH"
+    
+    python -m render_usd.cli single \
+        --usd_path "$USD_PATH" \
+        --output_dir "$OUTPUT_DIR"
 
-# Install dependencies if needed (optional, slows down startup)
-# pip install -e $CODE_ROOT
-
-# Run CLI
-python -m render_usd.cli grscenes100 \
-    --chunk_id $CHUNK_ID \
-    --chunk_total $CHUNK_TOTAL \
-    --assets_dir /cpfs/user/caopeizhou/data/GRScenes-100/Asset_Library_all \
-    --save_dir /oss-caopeizhou/data/GRScenes-100/all_assets_renderings
+else
+    # Batch mode (DLC default)
+    CHUNK_ID=$1
+    CHUNK_TOTAL=$2
+    
+    ASSETS_DIR=${3:-"/cpfs/shared/simulation/zhuzihou/assets/GRScenes100-for-render/GRScenes_assets"}
+    SAVE_DIR=${4:-"/cpfs/shared/simulation/zhuzihou/dev/render-usd/output_dlc_result"}
+    
+    echo "Running Batch Render Task: Chunk $CHUNK_ID / $CHUNK_TOTAL"
+    
+    python -m render_usd.cli grscenes100 \
+        --chunk_id $CHUNK_ID \
+        --chunk_total $CHUNK_TOTAL \
+        --assets_dir "$ASSETS_DIR" \
+        --save_dir "$SAVE_DIR"
+fi

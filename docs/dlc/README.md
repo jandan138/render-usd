@@ -34,7 +34,28 @@ To use these scripts, your cluster environment must meet the following criteria:
     *   **Data**: Input assets and output directories must be accessible (e.g., `/cpfs/user/...` or OSS paths).
 3.  **Docker Image**: A valid Isaac Sim image with Python environment support (e.g., `pj4090/yangsizhe:isaacsim41-cuda118`).
 
-## Configuration
+### 3. Local Testing
+
+You can run the script locally to verify the environment and rendering logic before submitting to DLC.
+
+**Render a single file:**
+```bash
+bash scripts/dlc/run_task.sh single /path/to/asset.usd [output_dir]
+```
+
+**Run a batch chunk (dry run):**
+```bash
+# Processes chunk 0 of 100 (will scan assets but run on local machine)
+bash scripts/dlc/run_task.sh 0 100
+```
+
+**In-place Rendering:**
+To save rendered images in the same directory as the USD file (instead of a separate output folder), use "inplace" as the save directory argument:
+```bash
+bash scripts/dlc/run_task.sh 0 1 "/path/to/assets" "inplace"
+```
+
+### 4. DLC Environment Variables
 
 You can customize the job submission by setting environment variables before running `submit_batch.py`. It is **CRITICAL** to verify these values against your DLC environment.
 

@@ -16,7 +16,7 @@ def main():
     parser_gr100.add_argument('--chunk_id', type=int, required=True, help="Chunk ID")
     parser_gr100.add_argument('--chunk_total', type=int, required=True, help="Total chunks")
     parser_gr100.add_argument('--assets_dir', type=str, default=None, help="Assets directory")
-    parser_gr100.add_argument('--save_dir', type=str, default=None, help="Save directory")
+    parser_gr100.add_argument('--save_dir', type=str, default=None, help="Save directory. Use 'inplace' to save in same dir as USD.")
 
     # GRScenes command
     parser_gr = subparsers.add_parser('grscenes', help='Render GRScenes dataset')
@@ -53,15 +53,34 @@ def main():
 
     if args.command == 'grscenes100':
         assets_dir = Path(args.assets_dir) if args.assets_dir else DEFAULT_GRSCENES100_ASSETS_DIR
-        save_dir = Path(args.save_dir) if args.save_dir else DEFAULT_GRSCENES100_SAVE_DIR
+        
+        if args.save_dir == 'inplace':
+            save_dir = None
+        else:
+            save_dir = Path(args.save_dir) if args.save_dir else DEFAULT_GRSCENES100_SAVE_DIR
         
         if not assets_dir.exists():
             print(f"[Error] Assets dir not found: {assets_dir}")
             kit.close()
             return
 
-        assets = natsorted(os.listdir(assets_dir))
-        total_assets = len(assets)
+        # Scan for assets in Category/AssetID/AssetID.usd structure
+        all_asset_usds = []
+        # First level: Categories
+        for cat_path in sorted(assets_dir.iterdir()):
+            if not cat_path.is_dir():
+                continue
+            # Second level: Asset IDs
+            for asset_path in sorted(cat_path.iterdir()):
+                if not asset_path.is_dir():
+                    continue
+                
+                # Check for USD file named after the directory (AssetID.usd)
+                usd_file = asset_path / f"{asset_path.name}.usd"
+                if usd_file.exists():
+                    all_asset_usds.append(usd_file)
+
+        total_assets = len(all_asset_usds)
         if total_assets == 0:
              print(f"[Error] No assets found in {assets_dir}")
              kit.close()
@@ -71,8 +90,7 @@ def main():
         start_idx = args.chunk_id * chunk_size
         end_idx = min(start_idx + chunk_size, total_assets)
         
-        assets_chunk = assets[start_idx:end_idx]
-        object_usd_paths = [assets_dir / asset / "instance.usd" for asset in assets_chunk]
+        object_usd_paths = all_asset_usds[start_idx:end_idx]
         
         print(f"[CLI] GRScenes-100 Chunk {args.chunk_id}/{args.chunk_total}: {len(object_usd_paths)} assets ({start_idx}-{end_idx}).")
         

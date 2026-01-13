@@ -4,37 +4,105 @@
 
 This directory contains utility scripts for submitting and managing rendering jobs on the Deep Learning Cluster (DLC) or Kubernetes-based environments.
 
-## Scripts Overview
+## 1. Workflow & Architecture
 
-### `launch_job.sh`
-A wrapper script that sets up the environment and executes the rendering command for a single job chunk.
+Running tasks on DLC typically involves two environments:
+1.  **Submission Environment (DSW/Local)**: Your development machine (e.g., DSW instance or local PC). You write code and **submit** tasks here.
+2.  **Execution Environment (DLC Cluster)**: Alibaba Cloud's compute cluster. Once submitted, tasks launch new containers (Workers) here to **execute** rendering.
 
-*   **Usage**: `bash launch_job.sh <TASK_NAME> <CHUNK_ID> <CHUNK_TOTAL> [DATA_SOURCES]`
-*   **Role**: Entry point for the container. It configures environment variables, PYTHONPATH, and executes `run_task.sh`.
+**Call Chain:**
 
-### `run_task.sh`
-The internal execution script that runs the actual Python rendering command.
+```mermaid
+graph LR
+    A[DSW/Local Terminal] -- 1. python submit_batch.py --> B(dlc submit command)
+    B -- 2. Submit Task Description (JSON/YAML) --> C[Alibaba Cloud DLC Cluster]
+    C -- 3. Schedule & Launch Worker Container --> D[Worker Node]
+    D -- 4. Mount Code & Data --> E(Run launch_job.sh)
+    E -- 5. Setup System Env --> F(Run run_task.sh)
+    F -- 6. Activate Conda & Run Python --> G[render_usd.cli]
+```
 
-*   **Usage**: `bash run_task.sh <CHUNK_ID> <CHUNK_TOTAL>`
-*   **Role**: Activates Conda environments (if needed), sets specific env vars (e.g., `OMNI_KIT_ACCEPT_EULA`), and calls `python -m render_usd.cli`.
+---
 
-### `submit_batch.py`
-A Python script to automate the submission of multiple jobs to the cluster.
+## 2. Scripts Details
 
-*   **Usage**: `python submit_batch.py --total <TOTAL_CHUNKS> --name <TASK_NAME>`
-*   **Role**: Loops through the total number of chunks and calls `dlc submit` (via `launch_job.sh`) for each one.
+### 2.1 `submit_batch.py` (Dispatcher)
+*   **Location**: DSW or Local Dev Machine.
+*   **Role**: Automates batch submission. It loops through chunks and calls the `dlc` CLI tool to submit them one by one.
+*   **Logic**:
+    ```python
+    # Pseudo-code
+    for chunk_id in range(total_chunks):
+        cmd = "bash launch_job.sh ..." # Construct launch command
+        subprocess.run(f"dlc submit ... --command '{cmd}'") # Call Alibaba Cloud CLI
+    ```
+*   **Usage**:
+    ```bash
+    python scripts/dlc/submit_batch.py --total 30 --name grscenes_render
+    ```
 
-## Environment Requirements
+### 2.2 `launch_job.sh` (Container Entrypoint)
+*   **Location**: Inside DLC Cluster Worker (First script executed on startup).
+*   **Role**:
+    1.  **Env Init**: Sets `PYTHONPATH`, exports necessary env vars (e.g., `WORKSPACE_ID`).
+    2.  **Bridge Args**: Receives args from `dlc submit` (e.g., `CHUNK_ID`).
+    3.  **Launch Task**: Calls `run_task.sh`.
+*   **Usage**: Typically called automatically by `submit_batch.py`, not manually (unless for debugging).
 
-To use these scripts, your cluster environment must meet the following criteria:
+### 2.3 `run_task.sh` (Task Executor)
+*   **Location**: Inside DLC Cluster Worker.
+*   **Role**:
+    1.  **Env Activation**: Auto-detects and activates the project-local Miniconda environment (`render-usd`) to ensure Python dependencies are correct.
+    2.  **Dependency Check**: Installs the package (`pip install -e .`) if missing.
+    3.  **Execution**: Calls the core Python rendering command (`python -m render_usd.cli`).
+*   **Usage**:
+    ```bash
+    # Local Debug/Run
+    bash scripts/dlc/run_task.sh 0 100
+    ```
 
-1.  **DLC CLI**: The `dlc` command-line tool must be installed and configured with valid credentials.
-2.  **Mount Points**:
-    *   **Code**: The repository code must be mounted to `/cpfs/shared/simulation/zhuzihou/dev/render-usd` (or configured via `DLC_CODE_ROOT`).
-    *   **Data**: Input assets and output directories must be accessible (e.g., `/cpfs/user/...` or OSS paths).
-3.  **Docker Image**: A valid Isaac Sim image with Python environment support (e.g., `pj4090/yangsizhe:isaacsim41-cuda118`).
+---
 
-### 3. Local Testing
+## 3. DSW Setup Guide
+
+If you encounter "command not found" or "auth failed" errors when running submission scripts in DSW, check the following.
+
+### 3.1 Why Configuration is Needed?
+DSW is just a development environment. To send tasks to the DLC cluster, you need the Alibaba Cloud Client Tool —— **`dlc` CLI**.
+1.  **Tool Dependency**: Your DSW environment must have the `dlc` CLI installed.
+2.  **Authentication**: The tool needs to know "who you are" (AccessKey) to have permission to submit tasks.
+
+### 3.2 Check & Configure Steps
+
+**Step 1: Check if `dlc` is installed**
+Run in terminal:
+```bash
+which dlc
+# If no output, it is not installed or not in PATH
+```
+*If missing*, you usually need to install the Alibaba Cloud PAI-DLC SDK or CLI package.
+
+**Step 2: Configure Credentials (Critical)**
+Even if installed, you must configure your Alibaba Cloud AccessKey before first use.
+```bash
+dlc config
+```
+You will be prompted to enter:
+*   **AccessKey ID**
+*   **AccessKey Secret**
+*   **Endpoint**: DLC service endpoint (e.g., `dlc.cn-beijing.aliyuncs.com`).
+*   **Region**: (e.g., `cn-beijing`).
+
+**Step 3: Verify**
+After config, try listing current jobs:
+```bash
+dlc get jobs
+```
+If it lists jobs, your environment is ready to run `submit_batch.py`.
+
+---
+
+## 4. Local Testing
 
 You can run the script locally to verify the environment and rendering logic before submitting to DLC.
 
@@ -55,7 +123,9 @@ To save rendered images in the same directory as the USD file (instead of a sepa
 bash scripts/dlc/run_task.sh 0 1 "/path/to/assets" "inplace"
 ```
 
-### 4. DLC Environment Variables
+---
+
+## 5. DLC Environment Variables
 
 You can customize the job submission by setting environment variables before running `submit_batch.py`. It is **CRITICAL** to verify these values against your DLC environment.
 
@@ -67,12 +137,3 @@ You can customize the job submission by setting environment variables before run
 ### Data Sources
 The `launch_job.sh` script uses specific data source IDs by default: `d-phhmdh73h3zzv7pqh0,d-r70bzlwqnstu3rg55l,d-d49o5g0h2818sw8j1g,d-8wz4emfs21s5ajs9oz`.
 Ensure these are correct for your dataset or pass them as the 4th argument to `launch_job.sh`.
-
-## Example
-
-Submit a batch of 30 jobs to render the GRScenes dataset:
-
-```bash
-export DLC_CODE_ROOT=/root/render-usd
-python scripts/dlc/submit_batch.py --total 30 --name grscenes_render
-```

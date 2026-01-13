@@ -1,6 +1,6 @@
 # 使用指南
 
-[English](usage.md)
+[English](usage_en.md)
 
 ## 命令行界面 (CLI)
 

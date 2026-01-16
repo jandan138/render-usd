@@ -19,6 +19,27 @@ python -m render_usd.cli single \
 **参数**:
 *   `--usd_path`: 目标 `.usd` 文件的绝对路径。
 *   `--output_dir`: 保存渲染图像的目录。
+*   `--naming_style`: 输出文件的命名方式。
+    *   `index` (默认): `{object_name}_{idx}.png` (例如 `Chair_0.png`)
+    *   `view`: `front.png`, `left.png`, `back.png`, `right.png`
+
+## 输出文件说明
+
+渲染器会为每个对象生成 4 张缩略图。
+
+**默认命名 (`index`):**
+*   **`_0.png`**: **前视图 (Front)** (方位角 0°, +X 轴)
+*   **`_1.png`**: **左视图 (Left)** (方位角 90°, +Y 轴)
+*   **`_2.png`**: **后视图 (Back)** (方位角 180°, -X 轴)
+*   **`_3.png`**: **右视图 (Right)** (方位角 270°, -Y 轴)
+
+**语义命名 (`view`):**
+*   **`front.png`**: 前视图
+*   **`left.png`**: 左视图
+*   **`back.png`**: 后视图
+*   **`right.png`**: 右视图
+
+> 注意：所有视角均以 **35° 俯仰角 (Elevation)** 拍摄。
 
 ### 批量渲染 (待定)
 

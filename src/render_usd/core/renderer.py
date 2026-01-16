@@ -82,6 +82,7 @@ class RenderManager:
         show_bbox2d=True,
         sample_number=4,
         init_azimuth_angle=0,
+        naming_style="index",
     ):
         """
         Render thumbnails for objects without a background (using a default environment).
@@ -92,6 +93,7 @@ class RenderManager:
             show_bbox2d: Whether to draw 2D bounding boxes on the output images.
             sample_number: Number of views to render per object.
             init_azimuth_angle: Initial azimuth angle for the camera.
+            naming_style: Naming convention for output files. "index" (default) or "view".
         """
         # Light settings
         if not self.world:
@@ -129,8 +131,14 @@ class RenderManager:
             center = (bbox_min + bbox_max) / 2
             
             for i in range(sample_number):
+                # Calculate azimuth angle: 0, 90, 180, 270 degrees
+                # Mapping (assuming standard coordinate system +X=Front, +Y=Left):
+                # i=0 (0 deg)   -> Front View (+X)
+                # i=1 (90 deg)  -> Left View  (+Y)
+                # i=2 (180 deg) -> Back View  (-X)
+                # i=3 (270 deg) -> Right View (-Y)
                 azimuth = init_azimuth_angle + i * 360 / sample_number
-                elevation = 35
+                elevation = 35  # Fixed elevation angle (high angle shot)
                 distance = np.linalg.norm(bbox_max - bbox_min) * 1.0
                 set_camera_look_at(cameras[i], center, azimuth=azimuth, elevation=elevation, distance=distance)
                 
@@ -143,6 +151,16 @@ class RenderManager:
             for idx, camera in enumerate(cameras):
                 rgb = get_src(camera, "rgb")
                 
+                # Determine filename based on naming style
+                filename_base = f"{object_name}_{idx}"
+                if naming_style == "view":
+                    if sample_number == 4 and init_azimuth_angle == 0:
+                        view_names = {0: "front", 1: "left", 2: "back", 3: "right"}
+                        if idx in view_names:
+                            filename_base = view_names[idx]
+                    else:
+                        print(f"[Warning] 'view' naming style requires sample_number=4 and init_azimuth_angle=0. Falling back to index style.")
+
                 if show_bbox2d:
                     bbox2d = get_src(camera, "bbox2d_tight")
                     try:
@@ -150,9 +168,9 @@ class RenderManager:
                         rgb = draw_bbox2d(rgb, bbox2d_data)
                     except:
                         print(f"[RenderManager: Render Thumbnail Without Background] {object_name} {idx} bbox2d is not valid due to the specific aspect.")
-                    cv2.imwrite(f"{save_dir}/{object_name}_{idx}_bbox2d.png", cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB))
+                    cv2.imwrite(f"{save_dir}/{filename_base}_bbox2d.png", cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB))
                 else:
-                    cv2.imwrite(f"{save_dir}/{object_name}_{idx}.png", cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB))
+                    cv2.imwrite(f"{save_dir}/{filename_base}.png", cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB))
             delete_prim(show_prim_path)
 
     def render_thumbnail_with_bg(self, scene_usd_path, object_usd_dir, thumbnail_with_bg_dir, show_bbox2d=True):

@@ -19,6 +19,27 @@ python -m render_usd.cli single \
 **Parameters**:
 *   `--usd_path`: Absolute path to the target `.usd` file.
 *   `--output_dir`: Directory where rendered images will be saved.
+*   `--naming_style`: Naming convention for output files.
+    *   `index` (default): `{object_name}_{idx}.png` (e.g. `Chair_0.png`)
+    *   `view`: `front.png`, `left.png`, `back.png`, `right.png`
+
+## Output Files
+
+The renderer generates 4 thumbnail images for each object.
+
+**Default Naming (`index`):**
+*   **`_0.png`**: **Front View** (Azimuth 0°, +X axis)
+*   **`_1.png`**: **Left View** (Azimuth 90°, +Y axis)
+*   **`_2.png`**: **Back View** (Azimuth 180°, -X axis)
+*   **`_3.png`**: **Right View** (Azimuth 270°, -Y axis)
+
+**Semantic Naming (`view`):**
+*   **`front.png`**: Front View
+*   **`left.png`**: Left View
+*   **`back.png`**: Back View
+*   **`right.png`**: Right View
+
+> Note: All views are captured with a fixed **elevation of 35°** (high angle shot).
 
 ### Batch Rendering (TBD)
 

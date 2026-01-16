@@ -17,6 +17,7 @@ def main():
     parser_gr100.add_argument('--chunk_total', type=int, required=True, help="Total chunks")
     parser_gr100.add_argument('--assets_dir', type=str, default=None, help="Assets directory")
     parser_gr100.add_argument('--save_dir', type=str, default=None, help="Save directory. Use 'inplace' to save in same dir as USD.")
+    parser_gr100.add_argument('--naming_style', type=str, default="index", choices=["index", "view"], help="Naming convention: index (0,1,...) or view (front,left,...)")
 
     # GRScenes command
     parser_gr = subparsers.add_parser('grscenes', help='Render GRScenes dataset')
@@ -25,11 +26,13 @@ def main():
     parser_gr.add_argument('--scene', type=str, default=None)
     parser_gr.add_argument('--objects_dir', type=str, default=None)
     parser_gr.add_argument('--scene_dir', type=str, default=None)
+    parser_gr.add_argument('--naming_style', type=str, default="index", choices=["index", "view"], help="Naming convention")
 
     # Single file command
     parser_single = subparsers.add_parser('single', help='Render a single USD file')
     parser_single.add_argument('--usd_path', type=str, required=True, help="Path to the USD file")
     parser_single.add_argument('--output_dir', type=str, required=True, help="Directory to save results")
+    parser_single.add_argument('--naming_style', type=str, default="index", choices=["index", "view"], help="Naming convention: index (0,1,...) or view (front,left,...)")
 
     args = parser.parse_args()
 
@@ -100,6 +103,7 @@ def main():
             init_azimuth_angle=0,
             sample_number=4,
             show_bbox2d=False,
+            naming_style=args.naming_style,
         )
 
     elif args.command == 'grscenes':
@@ -178,7 +182,7 @@ def main():
                         object_paths.append(obj_path)
 
                 if object_paths:
-                    renderer.render_thumbnail_wo_bg(object_paths, thumbnail_wo_bg_dir)
+                    renderer.render_thumbnail_wo_bg(object_paths, thumbnail_wo_bg_dir, naming_style=args.naming_style)
 
             if not has_rendered_with_bg:
                 os.makedirs(thumbnail_with_bg_dir, exist_ok=True)
@@ -199,7 +203,8 @@ def main():
             output_dir, 
             init_azimuth_angle=0, 
             sample_number=4, 
-            show_bbox2d=False
+            show_bbox2d=False,
+            naming_style=args.naming_style
         )
 
     kit.close()

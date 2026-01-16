@@ -2,6 +2,22 @@
 
 [中文版](usage_zh.md)
 
+## Environment Setup (Important!)
+
+Before running any commands, you must activate the correct environment and set up the Python path. Failure to do so will result in `ModuleNotFoundError`.
+
+**1. Activate Conda Environment**
+```bash
+source miniconda/bin/activate render-usd
+```
+
+**2. Setup PYTHONPATH**
+```bash
+export PYTHONPATH=$PYTHONPATH:$(pwd)/src
+```
+
+> **Note**: If you are using `scripts/dlc/run_task.sh`, these steps are handled automatically. But for manual CLI execution, you **must** run them.
+
 ## Command Line Interface (CLI)
 
 The primary entry point for the tool is `src/render_usd/cli.py`. You can execute it using `python -m render_usd.cli`.
@@ -22,6 +38,20 @@ python -m render_usd.cli single \
 *   `--naming_style`: Naming convention for output files.
     *   `index` (default): `{object_name}_{idx}.png` (e.g. `Chair_0.png`)
     *   `view`: `front.png`, `left.png`, `back.png`, `right.png`
+
+### Custom Structure Rendering
+
+Render assets in a nested directory structure (`Category/UID/usd/UID.usd`) and output directly to the UID folder (`Category/UID/`).
+
+```bash
+python -m render_usd.cli render_custom \
+    --assets_dir /path/to/GRScenes_assets \
+    --naming_style view
+```
+
+**Parameters**:
+*   `--assets_dir`: Root directory containing asset categories.
+*   `--naming_style`: Same as above (defaults to `view`).
 
 ## Output Files
 

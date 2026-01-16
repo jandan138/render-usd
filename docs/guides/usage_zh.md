@@ -2,6 +2,22 @@
 
 [English](usage_en.md)
 
+## 环境准备 (重要!)
+
+在运行任何命令之前，必须先激活正确的环境并配置 Python 路径。否则会导致 `ModuleNotFoundError`。
+
+**1. 激活 Conda 环境**
+```bash
+source miniconda/bin/activate render-usd
+```
+
+**2. 配置 PYTHONPATH**
+```bash
+export PYTHONPATH=$PYTHONPATH:$(pwd)/src
+```
+
+> **注意**: 如果您使用的是 `scripts/dlc/run_task.sh`，脚本会自动处理这些步骤。但在手动执行 CLI 命令时，您**必须**手动执行上述操作。
+
 ## 命令行界面 (CLI)
 
 该工具的主要入口点是 `src/render_usd/cli.py`。您可以使用 `python -m render_usd.cli` 来执行它。
@@ -22,6 +38,20 @@ python -m render_usd.cli single \
 *   `--naming_style`: 输出文件的命名方式。
     *   `index` (默认): `{object_name}_{idx}.png` (例如 `Chair_0.png`)
     *   `view`: `front.png`, `left.png`, `back.png`, `right.png`
+
+### 自定义结构渲染
+
+处理嵌套目录结构 (`Category/UID/usd/UID.usd`)，并将图片直接输出到 UID 目录 (`Category/UID/`)。
+
+```bash
+python -m render_usd.cli render_custom \
+    --assets_dir /path/to/GRScenes_assets \
+    --naming_style view
+```
+
+**参数**:
+*   `--assets_dir`: 包含资产类别的根目录。
+*   `--naming_style`: 同上 (默认为 `view`)。
 
 ## 输出文件说明
 

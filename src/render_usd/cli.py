@@ -34,6 +34,11 @@ def main():
     parser_single.add_argument('--output_dir', type=str, required=True, help="Directory to save results")
     parser_single.add_argument('--naming_style', type=str, default="index", choices=["index", "view"], help="Naming convention: index (0,1,...) or view (front,left,...)")
 
+    # Render custom subset command
+    parser_custom = subparsers.add_parser('render_custom', help='Render assets in a custom directory structure')
+    parser_custom.add_argument('--assets_dir', type=str, required=True, help="Root directory of the assets (e.g. GRScenes_assets)")
+    parser_custom.add_argument('--naming_style', type=str, default="view", choices=["index", "view"], help="Naming convention (default: view)")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -206,6 +211,53 @@ def main():
             show_bbox2d=False,
             naming_style=args.naming_style
         )
+
+    elif args.command == 'render_custom':
+        assets_dir = Path(args.assets_dir)
+        if not assets_dir.exists():
+            print(f"[Error] Assets dir not found: {assets_dir}")
+            kit.close()
+            return
+            
+        print(f"[CLI] Scanning assets in {assets_dir}...")
+        # Expected structure: assets_dir / Category / UID / usd / UID.usd
+        # We want to output to: assets_dir / Category / UID /
+        
+        object_usd_paths = []
+        save_dirs = []
+        
+        # Walk through the directory structure
+        # Level 1: Category
+        for cat_path in sorted(assets_dir.iterdir()):
+            if not cat_path.is_dir(): continue
+            
+            # Level 2: UID
+            for uid_path in sorted(cat_path.iterdir()):
+                if not uid_path.is_dir(): continue
+                
+                # Level 3: usd directory
+                usd_dir = uid_path / "usd"
+                if not usd_dir.exists(): continue
+                
+                # Look for .usd file with same name as UID
+                uid = uid_path.name
+                usd_file = usd_dir / f"{uid}.usd"
+                
+                if usd_file.exists():
+                    object_usd_paths.append(usd_file)
+                    save_dirs.append(uid_path) # Save directly under UID folder
+        
+        print(f"[CLI] Found {len(object_usd_paths)} assets.")
+        
+        if object_usd_paths:
+            renderer.render_thumbnail_wo_bg(
+                object_usd_paths, 
+                save_dirs, # Pass list of output directories
+                init_azimuth_angle=0, 
+                sample_number=4, 
+                show_bbox2d=False,
+                naming_style=args.naming_style
+            )
 
     kit.close()
 

@@ -4,7 +4,7 @@ import numpy as np
 from tqdm import tqdm
 from pathlib import Path
 from natsort import natsorted
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Union
 
 import omni
 import omni.kit.commands
@@ -78,7 +78,7 @@ class RenderManager:
     def render_thumbnail_wo_bg(
         self,
         object_usd_paths: List[Path], 
-        thumbnail_wo_bg_dir: Optional[Path], 
+        thumbnail_wo_bg_dir: Optional[Union[Path, List[Path]]], 
         show_bbox2d=True,
         sample_number=4,
         init_azimuth_angle=0,
@@ -89,7 +89,9 @@ class RenderManager:
 
         Args:
             object_usd_paths: List of paths to the object USD files.
-            thumbnail_wo_bg_dir: Directory to save the rendered thumbnails. If None, save in the same directory as the USD file.
+            thumbnail_wo_bg_dir: Directory to save the rendered thumbnails. 
+                                 If None, save in the same directory as the USD file.
+                                 If List[Path], specifies the output directory for each object respectively.
             show_bbox2d: Whether to draw 2D bounding boxes on the output images.
             sample_number: Number of views to render per object.
             init_azimuth_angle: Initial azimuth angle for the camera.
@@ -109,12 +111,18 @@ class RenderManager:
             setup_camera(camera, with_bbox2d=show_bbox2d)
             cameras.append(camera)
 
-        for object_usd_path in tqdm(object_usd_paths, desc="Rendering objects"):
+        for idx_obj, object_usd_path in enumerate(tqdm(object_usd_paths, desc="Rendering objects")):
             object_usd_path = Path(object_usd_path)
             object_name = object_usd_path.stem
             
             if thumbnail_wo_bg_dir is None:
                 save_dir = object_usd_path.parent
+            elif isinstance(thumbnail_wo_bg_dir, list):
+                if idx_obj < len(thumbnail_wo_bg_dir):
+                    save_dir = thumbnail_wo_bg_dir[idx_obj]
+                else:
+                    print(f"[Error] thumbnail_wo_bg_dir list length mismatch. Using parent dir.")
+                    save_dir = object_usd_path.parent
             else:
                 save_dir = thumbnail_wo_bg_dir / object_name 
 

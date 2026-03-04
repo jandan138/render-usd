@@ -1,6 +1,7 @@
 import os
 import cv2
 import numpy as np
+import gc
 from tqdm import tqdm
 from pathlib import Path
 from natsort import natsorted
@@ -37,6 +38,42 @@ class RenderManager:
         """
         self.app = app
         self.world = init_world()
+        self.cameras = []
+
+    def cleanup(self):
+        """
+        Cleanup resources before shutdown.
+
+        This method should be called before closing the Isaac Sim app
+        to prevent segmentation faults during shutdown.
+        """
+        print("[RenderManager] Starting cleanup...")
+
+        # Clear camera annotators and release GPU resources
+        if hasattr(self, 'cameras') and self.cameras:
+            for camera in self.cameras:
+                try:
+                    # Clear custom annotators to release GPU memory
+                    if hasattr(camera, '_custom_annotators'):
+                        camera._custom_annotators.clear()
+                    # Clear render product
+                    if hasattr(camera, '_render_product'):
+                        camera._render_product = None
+                except Exception as e:
+                    print(f"[RenderManager Cleanup] Warning cleaning camera: {e}")
+            self.cameras = []
+
+        # Clear world state
+        if self.world:
+            try:
+                self.world.reset()
+            except Exception as e:
+                print(f"[RenderManager Cleanup] Warning resetting world: {e}")
+
+        # Force garbage collection to release Python resources
+        gc.collect()
+
+        print("[RenderManager] Cleanup completed")
 
     def compute_2d_bbox_area(self, bbox2d_data: Tuple[int, float, float, float, float, float]) -> float:
         """
@@ -77,33 +114,35 @@ class RenderManager:
 
     def render_thumbnail_wo_bg(
         self,
-        object_usd_paths: List[Path], 
-        thumbnail_wo_bg_dir: Optional[Union[Path, List[Path]]], 
+        object_usd_paths: List[Path],
+        thumbnail_wo_bg_dir: Optional[Union[Path, List[Path]]],
         show_bbox2d=True,
         sample_number=4,
         init_azimuth_angle=0,
         naming_style="index",
+        overwrite=False,
     ):
         """
         Render thumbnails for objects without a background (using a default environment).
 
         Args:
             object_usd_paths: List of paths to the object USD files.
-            thumbnail_wo_bg_dir: Directory to save the rendered thumbnails. 
+            thumbnail_wo_bg_dir: Directory to save the rendered thumbnails.
                                  If None, save in the same directory as the USD file.
                                  If List[Path], specifies the output directory for each object respectively.
             show_bbox2d: Whether to draw 2D bounding boxes on the output images.
             sample_number: Number of views to render per object.
             init_azimuth_angle: Initial azimuth angle for the camera.
             naming_style: Naming convention for output files. "index" (default) or "view".
+            overwrite: If True, re-render even if output files already exist. If False, skip existing renders.
         """
         # Light settings
         if not self.world:
             self.world = init_world()
-            
+
         # Setup Environment (Load USD or Fallback Dome Light)
         setup_environment()
-        
+
         # Camera settings
         cameras = []
         for i in range(sample_number):
@@ -111,10 +150,13 @@ class RenderManager:
             setup_camera(camera, with_bbox2d=show_bbox2d)
             cameras.append(camera)
 
+        # Track cameras for cleanup during shutdown
+        self.cameras = cameras
+
         for idx_obj, object_usd_path in enumerate(tqdm(object_usd_paths, desc="Rendering objects")):
             object_usd_path = Path(object_usd_path)
             object_name = object_usd_path.stem
-            
+
             if thumbnail_wo_bg_dir is None:
                 save_dir = object_usd_path.parent
             elif isinstance(thumbnail_wo_bg_dir, list):
@@ -124,36 +166,140 @@ class RenderManager:
                     print(f"[Error] thumbnail_wo_bg_dir list length mismatch. Using parent dir.")
                     save_dir = object_usd_path.parent
             else:
-                save_dir = thumbnail_wo_bg_dir / object_name 
+                save_dir = thumbnail_wo_bg_dir / object_name
 
-            has_rendered = os.path.exists(save_dir) and len([f for f in os.listdir(save_dir) if f.startswith(object_name) and f.endswith('.png')]) >= sample_number
-            if has_rendered:
-                continue
-            
-            print(f"Rendering: {object_usd_path}")
+            if not overwrite:
+                has_rendered = os.path.exists(save_dir) and len([f for f in os.listdir(save_dir) if f.startswith(object_name) and f.endswith('.png')]) >= sample_number
+                if has_rendered:
+                    continue
+
+            print(f"[{idx_obj + 1}/{len(object_usd_paths)}] Rendering: {object_usd_path}")
+
+            # CRITICAL FIX #1: Reset world state before loading new object
+            # This prevents accumulation of invalid prims and render state
+            # Based on renderer-analysis.md finding: USD imaging delegate errors accumulate over time
+            try:
+                self.world.reset()
+            except Exception as e:
+                print(f"[Warning] World reset failed: {e}, continuing...")
+
             show_prim_path = "/World/Show"
-            usd_prim = create_prim(show_prim_path, position=(0, 0, 0), scale=(1, 1, 1), usd_path=str(object_usd_path))
-            set_prim_cast_shadow_true(usd_prim)
-            add_update_semantics(usd_prim, semantic_label="instance", type_label="class")
-            bbox_min, bbox_max = compute_bbox(usd_prim)
-            center = (bbox_min + bbox_max) / 2
-            
-            for i in range(sample_number):
-                # Calculate azimuth angle: 0, 90, 180, 270 degrees
-                # Mapping (assuming standard coordinate system +X=Front, +Y=Left):
-                # i=0 (0 deg)   -> Front View (+X)
-                # i=1 (90 deg)  -> Left View  (+Y)
-                # i=2 (180 deg) -> Back View  (-X)
-                # i=3 (270 deg) -> Right View (-Y)
-                azimuth = init_azimuth_angle + i * 360 / sample_number
-                elevation = 35  # Fixed elevation angle (high angle shot)
+            usd_prim = None
+            try:
+                usd_prim = create_prim(show_prim_path, position=(0, 0, 0), scale=(1, 1, 1), usd_path=str(object_usd_path))
+            except Exception as e:
+                print(f"[Error] Failed to create prim for {object_usd_path}: {e}")
+                continue
+
+            # CRITICAL FIX #2: Validate prim was created successfully
+            if usd_prim is None or not usd_prim.IsValid():
+                print(f"[Error] Failed to create valid prim for {object_usd_path}")
+                try:
+                    delete_prim(show_prim_path)
+                except:
+                    pass
+                continue
+
+            try:
+                set_prim_cast_shadow_true(usd_prim)
+                add_update_semantics(usd_prim, semantic_label="instance", type_label="class")
+                bbox_min, bbox_max = compute_bbox(usd_prim)
+
+                # CRITICAL FIX #3: Validate bounding box data before using it
+                # Based on isaac-sim-crash-research.md: Invalid bbox can cause camera positioning issues
+                if np.any(np.isnan(bbox_min)) or np.any(np.isnan(bbox_max)):
+                    print(f"[Error] Invalid bounding box (NaN) for {object_name}, skipping")
+                    delete_prim(show_prim_path)
+                    continue
+                if np.any(np.isinf(bbox_min)) or np.any(np.isinf(bbox_max)):
+                    print(f"[Error] Invalid bounding box (Inf) for {object_name}, skipping")
+                    delete_prim(show_prim_path)
+                    continue
+
+                center = (bbox_min + bbox_max) / 2
                 distance = np.linalg.norm(bbox_max - bbox_min) * 1.0
-                set_camera_look_at(cameras[i], center, azimuth=azimuth, elevation=elevation, distance=distance)
-                
-            for _ in range(100): 
-                 self.world.step(render=False)
-            for _ in range(8):
-                 self.world.step(render=True)
+
+                # Clamp distance to reasonable range to prevent numerical instability
+                distance = np.clip(distance, 0.1, 100.0)
+
+                for i in range(sample_number):
+                    # Calculate azimuth angle: 0, 90, 180, 270 degrees
+                    # Mapping (assuming standard coordinate system +X=Front, +Y=Left):
+                    # i=0 (0 deg)   -> Front View (+X)
+                    # i=1 (90 deg)  -> Left View  (+Y)
+                    # i=2 (180 deg) -> Back View  (-X)
+                    # i=3 (270 deg) -> Right View (-Y)
+                    azimuth = init_azimuth_angle + i * 360 / sample_number
+                    elevation = 35  # Fixed elevation angle (high angle shot)
+                    set_camera_look_at(cameras[i], center, azimuth=azimuth, elevation=elevation, distance=distance)
+
+                # CRITICAL FIX #4: Add error handling around rendering steps
+                # Based on renderer-analysis.md: Crashes occur at world.step(render=True) line 159
+                # This prevents segfaults from crashing the entire job
+                try:
+                    for _ in range(100):
+                        self.world.step(render=False)
+                    for _ in range(8):
+                        self.world.step(render=True)
+                except Exception as e:
+                    print(f"[Error] Rendering failed for {object_usd_path}: {e}")
+                    print(f"[Error] Skipping this asset and continuing...")
+                    try:
+                        delete_prim(show_prim_path)
+                    except:
+                        pass
+                    continue
+
+                # Image extraction and saving (inside try block so cleanup happens on error)
+                os.makedirs(save_dir, exist_ok=True)
+                for idx, camera in enumerate(cameras):
+                    # Get RGBA and composite onto dark gray background
+                    rgba = get_src(camera, "rgba")
+                    if rgba is not None and rgba.shape[2] == 4:
+                        alpha = rgba[:, :, 3:4].astype(np.float32) / 255.0
+                        bg = np.full_like(rgba[:, :, :3], 40, dtype=np.float32)  # dark gray RGB(40,40,40)
+                        rgb = (rgba[:, :, :3].astype(np.float32) * alpha + bg * (1.0 - alpha)).astype(np.uint8)
+                    else:
+                        rgb = get_src(camera, "rgb")
+
+                    # Determine filename based on naming style
+                    filename_base = f"{object_name}_{idx}"
+                    if naming_style == "view":
+                        if sample_number == 4 and init_azimuth_angle == 0:
+                            view_names = {0: "front", 1: "left", 2: "back", 3: "right"}
+                            if idx in view_names:
+                                filename_base = view_names[idx]
+                        else:
+                            print(f"[Warning] 'view' naming style requires sample_number=4 and init_azimuth_angle=0. Falling back to index style.")
+
+                    if show_bbox2d:
+                        bbox2d = get_src(camera, "bbox2d_tight")
+                        try:
+                            bbox2d_data = bbox2d[0][0]  # get the first row data
+                            rgb = draw_bbox2d(rgb, bbox2d_data)
+                        except:
+                            print(f"[RenderManager: Render Thumbnail Without Background] {object_name} {idx} bbox2d is not valid due to the specific aspect.")
+                        cv2.imwrite(f"{save_dir}/{filename_base}_bbox2d.png", cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB))
+                    else:
+                        cv2.imwrite(f"{save_dir}/{filename_base}.png", cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB))
+
+            except Exception as e:
+                print(f"[Error] Unexpected error processing {object_usd_path}: {e}")
+                import traceback
+                traceback.print_exc()
+            finally:
+                # Always cleanup the prim, even if an error occurred
+                try:
+                    delete_prim(show_prim_path)
+                except:
+                    pass
+
+                # CRITICAL FIX #5: Memory cleanup every N objects
+                # Based on resource-analysis.md: No cleanup between renders causes memory leaks
+                # This prevents accumulation of camera frames, RGBA arrays, and rendering buffers
+                if (idx_obj + 1) % 50 == 0:
+                    gc.collect()
+                    print(f"[Memory] Garbage collected after {idx_obj + 1} objects")
                  
             os.makedirs(save_dir, exist_ok=True)
             for idx, camera in enumerate(cameras):
@@ -218,6 +364,9 @@ class RenderManager:
             camera = init_camera(f"camera_{i}", image_width=600, image_height=450)
             setup_camera(camera, with_bbox2d=show_bbox2d, focal_length=9.0)
             cameras.append(camera)
+
+        # Track cameras for cleanup during shutdown
+        self.cameras = cameras
             
         instance_mesh_prims = get_all_mesh_prims_from_scope(stage, scope_name="scene/Instances")
         object_models_dir = object_usd_dir / "models"
@@ -233,57 +382,92 @@ class RenderManager:
             if mesh_prim_name not in extracted_object_names:
                 print(f"[RenderManager: Render Thumbnail With Background] {mesh_prim_name} is not extracted, skip.")
                 continue
-                
+
             mesh_dir = thumbnail_with_bg_dir / mesh_prim.GetName()
             if os.path.exists(mesh_dir) and len(os.listdir(mesh_dir)) > 0:
                 continue
-                
-            set_prim_cast_shadow_true(mesh_prim)
-            add_update_semantics(mesh_prim, semantic_label=f"instance_{index}", type_label="class")
-            bbox_min, bbox_max = compute_bbox(mesh_prim)
-            center = (bbox_min + bbox_max) / 2
-            distance = np.linalg.norm(bbox_max - bbox_min) * 1.0
-            
-            for i in range(sample_number):
-                azimuth = 30 + i * 360 / (sample_number / 2)
-                elevation = 35 if i < sample_number / 2 else -35
-                set_camera_look_at(cameras[i], center, azimuth=azimuth, elevation=elevation, distance=distance)
-                
-            for _ in range(100): 
-                 self.world.step(render=False)
-            for _ in range(8):
-                 self.world.step(render=True)
-                 
-            os.makedirs(mesh_dir, exist_ok=True)
-            all_top_views_valid = True
-            
-            for idx, camera in enumerate(cameras):
-                rgb = get_src(camera, "rgb")
-                need_save = True
-                
-                if show_bbox2d:
-                    bbox2d_tight = get_src(camera, "bbox2d_tight")[0]
-                    bbox2d_loose = get_src(camera, "bbox2d_loose")[0]
-                    
-                    is_detected = len(bbox2d_tight) > 0 and len(bbox2d_loose) > 0
-                    if is_detected:
-                        bbox2d_tight_data = bbox2d_tight[0]  # get the first row data
-                        bbox2d_loose_data = bbox2d_loose[0]  # get the first row data
-                        area_ratio = self.compute_2d_bbox_area_ratio(bbox2d_tight_data, bbox2d_loose_data)
-                        if area_ratio >= 0.8:
-                            rgb = draw_bbox2d(rgb, bbox2d_tight_data)
+
+            print(f"[{index + 1}/{len(instance_mesh_prims)}] Rendering scene instance: {mesh_prim_name}")
+
+            try:
+                set_prim_cast_shadow_true(mesh_prim)
+                add_update_semantics(mesh_prim, semantic_label=f"instance_{index}", type_label="class")
+                bbox_min, bbox_max = compute_bbox(mesh_prim)
+
+                # Validate bounding box data
+                if np.any(np.isnan(bbox_min)) or np.any(np.isnan(bbox_max)):
+                    print(f"[Error] Invalid bounding box (NaN) for {mesh_prim_name}, skipping")
+                    remove_all_semantics(mesh_prim)
+                    continue
+                if np.any(np.isinf(bbox_min)) or np.any(np.isinf(bbox_max)):
+                    print(f"[Error] Invalid bounding box (Inf) for {mesh_prim_name}, skipping")
+                    remove_all_semantics(mesh_prim)
+                    continue
+
+                center = (bbox_min + bbox_max) / 2
+                distance = np.linalg.norm(bbox_max - bbox_min) * 1.0
+                distance = np.clip(distance, 0.1, 100.0)
+
+                for i in range(sample_number):
+                    azimuth = 30 + i * 360 / (sample_number / 2)
+                    elevation = 35 if i < sample_number / 2 else -35
+                    set_camera_look_at(cameras[i], center, azimuth=azimuth, elevation=elevation, distance=distance)
+
+                # Add error handling around rendering steps
+                try:
+                    for _ in range(100):
+                        self.world.step(render=False)
+                    for _ in range(8):
+                        self.world.step(render=True)
+                except Exception as e:
+                    print(f"[Error] Rendering failed for {mesh_prim_name}: {e}")
+                    remove_all_semantics(mesh_prim)
+                    continue
+
+                os.makedirs(mesh_dir, exist_ok=True)
+                all_top_views_valid = True
+
+                for idx, camera in enumerate(cameras):
+                    rgb = get_src(camera, "rgb")
+                    need_save = True
+
+                    if show_bbox2d:
+                        bbox2d_tight = get_src(camera, "bbox2d_tight")[0]
+                        bbox2d_loose = get_src(camera, "bbox2d_loose")[0]
+
+                        is_detected = len(bbox2d_tight) > 0 and len(bbox2d_loose) > 0
+                        if is_detected:
+                            bbox2d_tight_data = bbox2d_tight[0]  # get the first row data
+                            bbox2d_loose_data = bbox2d_loose[0]  # get the first row data
+                            area_ratio = self.compute_2d_bbox_area_ratio(bbox2d_tight_data, bbox2d_loose_data)
+                            if area_ratio >= 0.8:
+                                rgb = draw_bbox2d(rgb, bbox2d_tight_data)
+                            else:
+                                need_save = False
                         else:
+                            print(f"[RenderManager: Render Thumbnail With Background] {mesh_prim.GetName()}_{idx} bbox2d is not detected.")
                             need_save = False
-                    else:
-                        print(f"[RenderManager: Render Thumbnail With Background] {mesh_prim.GetName()}_{idx} bbox2d is not detected.")
-                        need_save = False  
-                        if idx < sample_number / 2:
-                            all_top_views_valid = False
-                            
-                    if not all_top_views_valid and idx >= sample_number / 2:
-                        need_save = False
-                        
-                if need_save:
-                    cv2.imwrite(f"{mesh_dir}/{mesh_prim.GetName()}_with_bg_{idx}.png", cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB))
-                    
-            remove_all_semantics(mesh_prim)
+                            if idx < sample_number / 2:
+                                all_top_views_valid = False
+
+                        if not all_top_views_valid and idx >= sample_number / 2:
+                            need_save = False
+
+                    if need_save:
+                        cv2.imwrite(f"{mesh_dir}/{mesh_prim.GetName()}_with_bg_{idx}.png", cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB))
+
+                remove_all_semantics(mesh_prim)
+
+                # Memory cleanup every N objects
+                if (index + 1) % 50 == 0:
+                    gc.collect()
+                    print(f"[Memory] Garbage collected after {index + 1} scene instances")
+            except Exception as e:
+                print(f"[Error] Unexpected error processing {mesh_prim_name}: {e}")
+                import traceback
+                traceback.print_exc()
+                # Ensure semantics are cleaned up even on error
+                try:
+                    remove_all_semantics(mesh_prim)
+                except:
+                    pass

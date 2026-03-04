@@ -69,16 +69,21 @@ if [ "$1" == "single" ]; then
 
 elif [ "$1" == "render_custom" ]; then
     # 自定义目录渲染模式 (Custom directory structure rendering)
-    # 用法: bash run_task.sh render_custom <assets_dir> [naming_style]
+    # 用法: bash run_task.sh render_custom <assets_dir> [naming_style] [chunk_id] [chunk_total] [overwrite]
     # 资产结构: assets_dir/Category/UID/usd/UID.usd
     ASSETS_DIR=$2
     NAMING_STYLE=${3:-"view"}
+    CHUNK_ID=${4:-0}
+    CHUNK_TOTAL=${5:-1}
+    OVERWRITE=${6:-""}
 
-    echo "Running Render Custom Task: $ASSETS_DIR (naming: $NAMING_STYLE)"
+    echo "Running Render Custom Task: $ASSETS_DIR (naming: $NAMING_STYLE, chunk: $CHUNK_ID/$CHUNK_TOTAL, overwrite: ${OVERWRITE:-false})"
 
-    python -m render_usd.cli render_custom \
-        --assets_dir "$ASSETS_DIR" \
-        --naming_style "$NAMING_STYLE"
+    CMD="python -m render_usd.cli render_custom --assets_dir \"$ASSETS_DIR\" --naming_style \"$NAMING_STYLE\" --chunk_id \"$CHUNK_ID\" --chunk_total \"$CHUNK_TOTAL\""
+    if [ -n "$OVERWRITE" ]; then
+        CMD="$CMD --overwrite"
+    fi
+    eval "$CMD"
 
 elif [ "$1" == "grscenes" ]; then
     # GRScenes 场景渲染模式 (GRScenes scene-level rendering)

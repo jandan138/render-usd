@@ -75,6 +75,7 @@ def main():
     parser_gr100.add_argument('--assets_dir', type=str, default=None, help="Assets directory")
     parser_gr100.add_argument('--save_dir', type=str, default=None, help="Save directory. Use 'inplace' to save in same dir as USD.")
     parser_gr100.add_argument('--naming_style', type=str, default="index", choices=["index", "view"], help="Naming convention: index (0,1,...) or view (front,left,...)")
+    parser_gr100.add_argument('--overwrite', action='store_true', help="Overwrite existing rendered images")
 
     # GRScenes command
     parser_gr = subparsers.add_parser('grscenes', help='Render GRScenes dataset')
@@ -84,17 +85,22 @@ def main():
     parser_gr.add_argument('--objects_dir', type=str, default=None)
     parser_gr.add_argument('--scene_dir', type=str, default=None)
     parser_gr.add_argument('--naming_style', type=str, default="index", choices=["index", "view"], help="Naming convention")
+    parser_gr.add_argument('--overwrite', action='store_true', help="Overwrite existing rendered images")
 
     # Single file command
     parser_single = subparsers.add_parser('single', help='Render a single USD file')
     parser_single.add_argument('--usd_path', type=str, required=True, help="Path to the USD file")
     parser_single.add_argument('--output_dir', type=str, required=True, help="Directory to save results")
     parser_single.add_argument('--naming_style', type=str, default="index", choices=["index", "view"], help="Naming convention: index (0,1,...) or view (front,left,...)")
+    parser_single.add_argument('--overwrite', action='store_true', help="Overwrite existing rendered images")
 
     # Render custom subset command
     parser_custom = subparsers.add_parser('render_custom', help='Render assets in a custom directory structure')
     parser_custom.add_argument('--assets_dir', type=str, required=True, help="Root directory of the assets (e.g. GRScenes_assets)")
     parser_custom.add_argument('--naming_style', type=str, default="view", choices=["index", "view"], help="Naming convention (default: view)")
+    parser_custom.add_argument('--overwrite', action='store_true', help="Overwrite existing rendered images")
+    parser_custom.add_argument('--chunk_id', type=int, default=0, help="Chunk ID for parallel processing")
+    parser_custom.add_argument('--chunk_total', type=int, default=1, help="Total number of chunks for parallel processing")
 
     args = parser.parse_args()
 
@@ -166,12 +172,13 @@ def main():
         print(f"[CLI] GRScenes-100 Chunk {args.chunk_id}/{args.chunk_total}: {len(object_usd_paths)} assets ({start_idx}-{end_idx}).")
         
         renderer.render_thumbnail_wo_bg(
-            object_usd_paths, 
+            object_usd_paths,
             save_dir,
             init_azimuth_angle=0,
             sample_number=4,
             show_bbox2d=False,
             naming_style=args.naming_style,
+            overwrite=args.overwrite,
         )
 
     elif args.command == 'grscenes':
@@ -250,7 +257,7 @@ def main():
                         object_paths.append(obj_path)
 
                 if object_paths:
-                    renderer.render_thumbnail_wo_bg(object_paths, thumbnail_wo_bg_dir, naming_style=args.naming_style)
+                    renderer.render_thumbnail_wo_bg(object_paths, thumbnail_wo_bg_dir, naming_style=args.naming_style, overwrite=getattr(args, 'overwrite', False))
 
             if not has_rendered_with_bg:
                 os.makedirs(thumbnail_with_bg_dir, exist_ok=True)
@@ -267,12 +274,13 @@ def main():
             
         print(f"[CLI] Rendering single file: {usd_path}")
         renderer.render_thumbnail_wo_bg(
-            [usd_path], 
-            output_dir, 
-            init_azimuth_angle=0, 
-            sample_number=4, 
+            [usd_path],
+            output_dir,
+            init_azimuth_angle=0,
+            sample_number=4,
             show_bbox2d=False,
-            naming_style=args.naming_style
+            naming_style=args.naming_style,
+            overwrite=args.overwrite,
         )
 
     elif args.command == 'render_custom':
@@ -311,18 +319,57 @@ def main():
                     save_dirs.append(uid_path) # Save directly under UID folder
         
         print(f"[CLI] Found {len(object_usd_paths)} assets.")
-        
+
+        # Apply chunking logic
+        total_assets = len(object_usd_paths)
+        if args.chunk_total > 1:
+            chunk_size = (total_assets + args.chunk_total - 1) // args.chunk_total
+            start_idx = args.chunk_id * chunk_size
+            end_idx = min(start_idx + chunk_size, total_assets)
+            object_usd_paths = object_usd_paths[start_idx:end_idx]
+            save_dirs = save_dirs[start_idx:end_idx]
+            print(f"[CLI] Chunk {args.chunk_id}/{args.chunk_total}: {len(object_usd_paths)} assets ({start_idx}-{end_idx}).")
+        else:
+            print(f"[CLI] Processing all {total_assets} assets (single chunk).")
+
         if object_usd_paths:
             renderer.render_thumbnail_wo_bg(
-                object_usd_paths, 
+                object_usd_paths,
                 save_dirs, # Pass list of output directories
-                init_azimuth_angle=0, 
-                sample_number=4, 
+                init_azimuth_angle=0,
+                sample_number=4,
                 show_bbox2d=False,
-                naming_style=args.naming_style
+                naming_style=args.naming_style,
+                overwrite=args.overwrite,
             )
 
-    kit.close()
+    # SHUTDOWN FIX #1: Call renderer cleanup before closing Isaac Sim
+    # Based on parameter-comparer finding: crash occurs AFTER rendering, during shutdown
+    # This prevents segfaults from large USD stage deallocation during kit.close()
+    print("[CLI] Rendering complete, starting shutdown cleanup...")
+    try:
+        renderer.cleanup()
+    except Exception as e:
+        print(f"[CLI] Warning during renderer cleanup: {e}")
+        import traceback
+        traceback.print_exc()
+
+    # Force garbage collection before exit
+    import gc
+    gc.collect()
+    print("[CLI] Garbage collection completed")
+
+    # SHUTDOWN FIX #2: Add logging to diagnose exact shutdown point
+    print("[CLI] Calling kit.close()...")
+    try:
+        kit.close()
+        print("[CLI] Isaac Sim closed successfully")
+    except Exception as e:
+        print(f"[CLI] Error during kit.close(): {e}")
+        import traceback
+        traceback.print_exc()
+        # Still exit even if close fails
+        sys.exit(0)
 
 if __name__ == "__main__":
     main()

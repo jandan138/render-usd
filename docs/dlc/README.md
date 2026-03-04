@@ -4,6 +4,15 @@
 
 This directory contains utility scripts for submitting and managing rendering jobs on the Deep Learning Cluster (DLC) or Kubernetes-based environments.
 
+## Recent Updates
+
+- **2026-03-04**: [DLC Crash Fix](changelog.md) - Fixed segmentation fault (exit code 139) during Isaac Sim shutdown
+  - Added `RenderManager.cleanup()` method for proper resource cleanup
+  - Implemented chunking support for `render_custom` mode
+  - Fixed parameter passing bugs in DLC scripts
+  - See [DLC Crash Fix Summary](../dlc-crash-fix-summary.md) for detailed analysis
+  - See [Crash Investigation](crash-investigation/) for research documents
+
 ## 1. Workflow & Architecture
 
 Running tasks on DLC typically involves two environments:

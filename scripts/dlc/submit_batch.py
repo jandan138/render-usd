@@ -27,8 +27,11 @@ def submit_jobs(
         # 参数4: data_sources (传空字符串让 launch_job.sh 使用默认值)
         cmd.append(data_sources if data_sources else "")
         # 参数5: command_args (可选, 覆盖 run_task.sh 的运行模式)
+        # 支持 {chunk_id} 和 {chunk_total} 模板替换
         if command_args:
-            cmd.append(command_args)
+            # 替换模板变量为实际的 chunk_id 和 chunk_total
+            expanded_args = command_args.replace("{chunk_id}", str(chunk_id)).replace("{chunk_total}", str(chunk_total))
+            cmd.append(expanded_args)
         print(f"Executing: {' '.join(cmd)}")
         subprocess.run(cmd, check=True, cwd=str(repo_root))
 

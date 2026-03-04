@@ -46,6 +46,13 @@ export OMNI_KIT_ACCEPT_EULA=YES
 # 设置 Python 输出无缓冲，确保日志实时打印
 export PYTHONUNBUFFERED=1
 
+# 设置 MDL 材质搜索路径 (MDL material search paths for GRScenes)
+# Python CLI also configures this via carb.settings; env var provides a fallback
+MDL_PATHS="/cpfs/shared/simulation/zhuzihou/dev/usd-scene-physics-prep/GRScenes-test1/Material/mdl"
+MDL_PATHS="$MDL_PATHS:/cpfs/shared/simulation/liyangzi/grutopia/assets/scenes/GRScenes-100/home_scenes/Materials"
+export MDL_SYSTEM_PATH="${MDL_SYSTEM_PATH:+$MDL_SYSTEM_PATH:}$MDL_PATHS"
+echo "MDL_SYSTEM_PATH=$MDL_SYSTEM_PATH"
+
 # 检查运行模式 (Check mode)
 # $1 是第一个参数，决定运行哪种渲染模式
 if [ "$1" == "single" ]; then

@@ -1,5 +1,19 @@
 # 改动记录
 
+## 2026-03-04 — MDL 材质搜索路径修复
+
+**问题**: GRScenes-test1 的 USD 文件引用 `./Materials/MI_xxx.mdl` 相对路径，渲染节点上缺少对应目录导致 MDL 编译器找不到材质文件，物体渲染为纯红色。
+
+**修复方案**: 通过 Isaac Sim 的 carb.settings API 注册 MDL 搜索路径，替代此前的 Material 符号链接方案。
+
+- **`settings.py`**: 新增 `DEFAULT_MDL_SEARCH_PATHS`，包含两个 GRScenes MDL 目录
+- **`cli.py`**: 新增 `_collect_mdl_paths()` 和 `_configure_mdl_search_paths()`，通过 `/app/mdl/additionalSystemPaths` 注册搜索路径；新增 `--mdl_paths` CLI 参数支持自定义路径
+- **`run_task.sh`**: 新增 `MDL_SYSTEM_PATH` 环境变量导出作为兜底方案
+
+**路径优先级**: CLI `--mdl_paths` > 环境变量 `MDL_SYSTEM_PATH` > `DEFAULT_MDL_SEARCH_PATHS`（三者合并，不覆盖）
+
+---
+
 **日期**: 2026-03-04
 **对应 Commit**: `3a1708a` Feat: Update DLC scripts with render_custom/grscenes modes and add dlc-operator agent
 

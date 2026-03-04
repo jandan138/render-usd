@@ -2,13 +2,70 @@ import argparse
 import sys
 import os
 from pathlib import Path
+from render_usd.config.settings import DEFAULT_MDL_SEARCH_PATHS
 from isaacsim import SimulationApp
 
 # Configuration for SimulationApp
 CONFIG = {"headless": True, "anti_aliasing": 4, "multi_gpu": False, "renderer": "PathTracing"}
 
+
+def _collect_mdl_paths(cli_paths):
+    """Collect MDL search paths from CLI args, env var, and defaults.
+
+    Priority (all are merged, no overriding):
+    1. --mdl_paths CLI argument (highest priority, added first)
+    2. MDL_SYSTEM_PATH env var (colon-separated)
+    3. DEFAULT_MDL_SEARCH_PATHS from settings.py
+    Only paths that exist on disk are included.
+    """
+    paths = []
+    seen = set()
+
+    def _add(p):
+        p = os.path.abspath(p)
+        if p not in seen and os.path.isdir(p):
+            seen.add(p)
+            paths.append(p)
+
+    # CLI paths
+    if cli_paths:
+        for p in cli_paths:
+            _add(p)
+
+    # Environment variable
+    env_val = os.environ.get("MDL_SYSTEM_PATH", "")
+    if env_val:
+        for p in env_val.split(":"):
+            if p.strip():
+                _add(p.strip())
+
+    # Defaults from settings
+    for p in DEFAULT_MDL_SEARCH_PATHS:
+        _add(p)
+
+    return paths
+
+
+def _configure_mdl_search_paths(mdl_paths):
+    """Register MDL search paths via carb.settings after SimulationApp init."""
+    if not mdl_paths:
+        return
+
+    import carb.settings
+    settings = carb.settings.get_settings()
+    existing = settings.get("/app/mdl/additionalSystemPaths") or []
+    merged = list(existing)
+    for p in mdl_paths:
+        if p not in merged:
+            merged.append(p)
+    settings.set_string_array("/app/mdl/additionalSystemPaths", merged)
+    print(f"[CLI] MDL search paths configured: {merged}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Render USD assets using Isaac Sim")
+    parser.add_argument('--mdl_paths', type=str, nargs='+', default=None,
+                        help="Additional MDL material search paths (also reads MDL_SYSTEM_PATH env var)")
     subparsers = parser.add_subparsers(dest='command', help='Sub-commands')
 
     # GRScenes100 command
@@ -45,8 +102,14 @@ def main():
         parser.print_help()
         return
 
+    # Collect MDL search paths before SimulationApp init
+    mdl_paths = _collect_mdl_paths(args.mdl_paths)
+
     # Initialize Isaac Sim
     kit = SimulationApp(CONFIG)
+
+    # Configure MDL search paths via carb.settings (must be after SimulationApp init)
+    _configure_mdl_search_paths(mdl_paths)
 
     # Lazy import to avoid Omni issues before SimulationApp starts
     from render_usd.core.renderer import RenderManager

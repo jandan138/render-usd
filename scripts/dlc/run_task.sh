@@ -47,34 +47,57 @@ export OMNI_KIT_ACCEPT_EULA=YES
 export PYTHONUNBUFFERED=1
 
 # 检查运行模式 (Check mode)
-# $1 是第一个参数，如果是 "single" 则进入单文件测试模式
+# $1 是第一个参数，决定运行哪种渲染模式
 if [ "$1" == "single" ]; then
     # 单文件模式 (Single file mode for testing)
-    # 用法: bash run_task.sh single <usd_path> <output_dir>
-    USD_PATH=$2 # 参数2: USD 文件路径
-    # 参数3: 输出目录 (可选)，默认为 output_test_single
+    # 用法: bash run_task.sh single <usd_path> [output_dir]
+    USD_PATH=$2
     OUTPUT_DIR=${3:-"$CODE_ROOT/output_test_single"}
-    
+
     echo "Running Single Render Task: $USD_PATH"
-    
-    # 调用 Python CLI 执行单文件渲染
+
     python -m render_usd.cli single \
         --usd_path "$USD_PATH" \
         --output_dir "$OUTPUT_DIR"
 
+elif [ "$1" == "render_custom" ]; then
+    # 自定义目录渲染模式 (Custom directory structure rendering)
+    # 用法: bash run_task.sh render_custom <assets_dir> [naming_style]
+    # 资产结构: assets_dir/Category/UID/usd/UID.usd
+    ASSETS_DIR=$2
+    NAMING_STYLE=${3:-"view"}
+
+    echo "Running Render Custom Task: $ASSETS_DIR (naming: $NAMING_STYLE)"
+
+    python -m render_usd.cli render_custom \
+        --assets_dir "$ASSETS_DIR" \
+        --naming_style "$NAMING_STYLE"
+
+elif [ "$1" == "grscenes" ]; then
+    # GRScenes 场景渲染模式 (GRScenes scene-level rendering)
+    # 用法: bash run_task.sh grscenes <part> <usd> [scene]
+    PART=$2
+    USD=$3
+    SCENE=${4:-""}
+
+    echo "Running GRScenes Task: part=$PART usd=$USD scene=$SCENE"
+
+    CMD="python -m render_usd.cli grscenes --part $PART --usd $USD"
+    if [ -n "$SCENE" ]; then
+        CMD="$CMD --scene $SCENE"
+    fi
+    eval "$CMD"
+
 else
     # 批量模式 (Batch mode) - DLC 默认模式
-    CHUNK_ID=$1    # 参数1: 当前分块 ID
-    CHUNK_TOTAL=$2 # 参数2: 总分块数
-    
-    # 参数3: 资产根目录 (可选)
+    # 用法: bash run_task.sh <chunk_id> <chunk_total> [assets_dir] [save_dir]
+    CHUNK_ID=$1
+    CHUNK_TOTAL=$2
     ASSETS_DIR=${3:-"/cpfs/shared/simulation/zhuzihou/assets/GRScenes100-for-render/GRScenes_assets"}
-    # 参数4: 结果保存目录 (可选)
     SAVE_DIR=${4:-"/cpfs/shared/simulation/zhuzihou/dev/render-usd/output_dlc_result"}
-    
+
     echo "Running Batch Render Task: Chunk $CHUNK_ID / $CHUNK_TOTAL"
-    
-    # 调用 Python CLI 执行 GRScenes100 批量渲染
+
     python -m render_usd.cli grscenes100 \
         --chunk_id $CHUNK_ID \
         --chunk_total $CHUNK_TOTAL \

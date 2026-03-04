@@ -3,6 +3,8 @@
 > Date: 2026-03-04
 > Status: Implemented & Tested (DLC Job `dlc1k9aayxi3arv6`)
 
+**[中文版](./mdl-material-fix_zh.md)**
+
 ## Table of Contents
 
 1. [Problem Description](#1-problem-description)

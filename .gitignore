@@ -46,6 +46,7 @@ MANIFEST
 
 # Project specific output
 output_*/
+test_outputs/
 *.usd
 *.png
 *.jpg
@@ -60,6 +61,9 @@ miniconda.sh
 
 # Trae Agent
 .trae/
+
+# Claude Code internal cache files
+.claude/.efc_*
 
 # DLC Client
 dlc

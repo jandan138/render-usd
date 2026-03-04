@@ -37,8 +37,8 @@ def count_instance_occurrence_times_in_all_frames(instance_id_dir: str):
     statistics = {}
     instance_pkl_list = natsorted(os.listdir(instance_id_dir))
     for instance_pkl in tqdm(instance_pkl_list, desc="Counting instance appearances in all frames"):
-        instanc_map_path = os.path.join(instance_id_dir, instance_pkl)
-        instance_id = get_instance_id(instanc_map_path)    # Dict
+        instance_map_path = os.path.join(instance_id_dir, instance_pkl)
+        instance_id = get_instance_id(instance_map_path)    # Dict
         for _, instance_info in instance_id.items():
             instance_name = instance_info["class"]
             if instance_name not in statistics.keys():
@@ -77,8 +77,8 @@ def get_instance_frame_indices(instance_id_dir: str):
     statistics = {}
     instance_pkl_list = natsorted(os.listdir(instance_id_dir))
     for instance_pkl in tqdm(instance_pkl_list, desc="Tracking instance per frame"):
-        instanc_map_path = os.path.join(instance_id_dir, instance_pkl)
-        instance_id = get_instance_id(instanc_map_path)    # Dict
+        instance_map_path = os.path.join(instance_id_dir, instance_pkl)
+        instance_id = get_instance_id(instance_map_path)    # Dict
         for _, instance_info in instance_id.items():
             instance_name = instance_info["class"]
             if instance_name not in statistics.keys():
@@ -100,8 +100,8 @@ def get_frame_instance_number(instance_id_dir: str):
     instance_pkl_list = natsorted(os.listdir(instance_id_dir))
     for instance_pkl in tqdm(instance_pkl_list, desc="Counting instances per frame"):
         frame_index = instance_pkl.split("_")[0]
-        instanc_map_path = os.path.join(instance_id_dir, instance_pkl)
-        instance_id = get_instance_id(instanc_map_path)
+        instance_map_path = os.path.join(instance_id_dir, instance_pkl)
+        instance_id = get_instance_id(instance_map_path)
         statistics[frame_index] = len(instance_id) - 2  # -2 for background and unknown
     return statistics
 
@@ -114,11 +114,11 @@ def visualize_frames_with_less_instances(instance_dir: str, save_dir: str):
     instance_list = natsorted(os.listdir(instance_dir))
     for instance in tqdm(instance_list, desc="Visualizing frames with less instances"):
         frame_index = instance.split("_")[0]
-        instanc_map_path = os.path.join(instance_dir, instance)
-        instance_id = get_instance_id(instanc_map_path)
+        instance_map_path = os.path.join(instance_dir, instance)
+        instance_id = get_instance_id(instance_map_path)
         instance_number = len(instance_id) - 2    # -2 for background and unknown
         if instance_number < 4:
-            instance_mask = get_instance_mask(instanc_map_path)
+            instance_mask = get_instance_mask(instance_map_path)
             colorized_instance_mask = colorize_instance_mask_with_idlist(instance_mask)
             rgb_image = cv2.imread(os.path.join(rgb_dir, f"{frame_index}.jpg"))
             # print(f"[DEBUG] rgb_image.shape: {rgb_image.shape}")
@@ -180,8 +180,8 @@ def get_continuity_info(num_list: List[int]) -> Dict:
 def check_instance_mask(instance_id_dir: str):
     instance_pkl_list = natsorted(os.listdir(instance_id_dir))
     for instance_pkl in tqdm(instance_pkl_list, desc="Checking instance mask"):
-        instanc_map_path = os.path.join(instance_id_dir, instance_pkl)
-        instance_mask = get_instance_mask(instanc_map_path)
+        instance_map_path = os.path.join(instance_id_dir, instance_pkl)
+        instance_mask = get_instance_mask(instance_map_path)
 
         labels = np.unique(instance_mask)
         if 1 in labels or 0 in labels:

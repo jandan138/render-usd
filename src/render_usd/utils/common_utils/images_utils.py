@@ -129,7 +129,6 @@ def concatenate_images(
     
     # Validate that all images have the same size
     base_size = images[0].size
-    print(f"[DEBUG] Base size: {base_size}")
     if any(img.size != base_size for img in images):
         raise ValueError("[GRGenerator: Images Utils.concatenate_images] All images must have the same size")
     

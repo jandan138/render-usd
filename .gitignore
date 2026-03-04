@@ -65,5 +65,5 @@ miniconda.sh
 # Claude Code internal cache files
 .claude/.efc_*
 
-# DLC Client
-dlc
+# DLC Client (binary at repo root)
+/dlc

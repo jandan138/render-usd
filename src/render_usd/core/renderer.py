@@ -157,8 +157,15 @@ class RenderManager:
                  
             os.makedirs(save_dir, exist_ok=True)
             for idx, camera in enumerate(cameras):
-                rgb = get_src(camera, "rgb")
-                
+                # Get RGBA and composite onto dark gray background
+                rgba = get_src(camera, "rgba")
+                if rgba is not None and rgba.shape[2] == 4:
+                    alpha = rgba[:, :, 3:4].astype(np.float32) / 255.0
+                    bg = np.full_like(rgba[:, :, :3], 40, dtype=np.float32)  # dark gray RGB(40,40,40)
+                    rgb = (rgba[:, :, :3].astype(np.float32) * alpha + bg * (1.0 - alpha)).astype(np.uint8)
+                else:
+                    rgb = get_src(camera, "rgb")
+
                 # Determine filename based on naming style
                 filename_base = f"{object_name}_{idx}"
                 if naming_style == "view":

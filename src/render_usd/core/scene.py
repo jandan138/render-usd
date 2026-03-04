@@ -1,6 +1,7 @@
 import omni
 import os
-from pxr import Usd, UsdLux
+import carb
+from pxr import Gf, Usd, UsdLux
 from omni.isaac.core import World
 from omni.isaac.core.utils.semantics import add_update_semantics
 from omni.isaac.core.utils.stage import add_reference_to_stage
@@ -38,10 +39,41 @@ def setup_environment(env_path: Optional[str] = None):
          print(f"[Scene] Loaded environment from {env_path}")
     else:
          print(f"[Scene] Environment file not found at {env_path}, creating default Dome Light.")
+
+         # Search for HDRI texture bundled with Isaac Sim
+         hdri_path = None
+         try:
+              import isaacsim
+              candidate = os.path.join(
+                   os.path.dirname(os.path.dirname(isaacsim.__file__)),
+                   "isaacsim", "extscache",
+                   "omni.kit.widget.material_preview-1.0.16",
+                   "data", "photo_studio_01_4k.hdr")
+              if os.path.exists(candidate):
+                   hdri_path = candidate
+         except Exception:
+              pass
+
          stage = omni.usd.get_context().get_stage()
          dome_light = UsdLux.DomeLight.Define(stage, "/World/default_dome_light")
-         dome_light.CreateIntensityAttr(1000)
          dome_light.CreateTextureFormatAttr(UsdLux.Tokens.latlong)
+
+         if hdri_path:
+              dome_light.CreateIntensityAttr(1500)
+              dome_light.CreateTextureFileAttr(hdri_path)
+              dome_light.CreateColorAttr(Gf.Vec3f(1.0, 1.0, 1.0))
+              # Enable background transparency so the HDRI lights the object
+              # but does not appear in the rendered background
+              settings = carb.settings.get_settings()
+              settings.set("/rtx/post/backgroundZeroAlpha/enabled", True)
+              settings.set("/rtx/post/backgroundZeroAlpha/backgroundComposite", False)
+              settings.set("/rtx/post/backgroundZeroAlpha/outputAlphaInComposite", True)
+              settings.set("/app/captureFrame/setAlphaTo1", False)
+              print(f"[Scene] HDRI environment loaded: {hdri_path}")
+         else:
+              dome_light.CreateIntensityAttr(1000)
+              dome_light.CreateColorAttr(Gf.Vec3f(0.18, 0.18, 0.18))
+              print("[Scene] Using default DomeLight (no HDRI found)")
 
 def setup_instance_scene(stage: Usd.Stage) -> None:
     object_mesh_prims = get_all_mesh_prims(stage, world_node_path="/World/scene")

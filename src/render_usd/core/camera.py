@@ -121,6 +121,13 @@ def get_rgb(camera: Camera) -> Optional[np.ndarray]:
     else:
         return None
 
+def get_rgba(camera: Camera) -> Optional[np.ndarray]:
+    frame = camera.get_rgba()
+    if isinstance(frame, np.ndarray) and frame.size > 0:
+        return frame
+    else:
+        return None
+
 def get_bounding_box_2d_tight(camera: Camera) -> tuple[np.ndarray, dict]:
     annotator = camera._custom_annotators["bounding_box_2d_tight"]
     annotation_data = annotator.get_data()
@@ -171,6 +178,8 @@ def get_motion_vectors(camera: Camera) -> np.ndarray:
 def get_src(camera: Camera, type: str) -> Union[np.ndarray, dict, None]:
     if type == "rgb":
         return get_rgb(camera)
+    if type == "rgba":
+        return get_rgba(camera)
     if type == "depth":
         return get_depth(camera)
     if type == "cloud":

@@ -94,6 +94,37 @@ All values can be overridden via environment variables:
 - Default output: `/cpfs/shared/simulation/zhuzihou/dev/render-usd/output_dlc_result`
 - Conda env: `miniconda/bin/activate render-usd`
 
+## Available Skills
+
+When checking DLC job status or monitoring tasks, **优先使用以下skills** 代替直接写bash命令：
+
+| Skill | 功能 | 示例 |
+|-------|------|------|
+| `/dlc-status` | 查看所有任务状态分布 | `/dlc-status` |
+| `/dlc-count` | 统计任务数量 | `/dlc-count` |
+| `/dlc-jobs <filter>` | 列出任务（可过滤） | `/dlc-jobs render_grscenes` |
+| `/dlc-logs <job_id>` | 查看任务日志 | `/dlc-logs dlc196vabtu0b13w` |
+| `/dlc-monitor <name>` | 持续监控任务（30秒刷新） | `/dlc-monitor render_grscenes_fixed_v2` |
+| `/dlc-retry-failed <name>` | 查找失败任务 | `/dlc-retry-failed render_grscenes` |
+
+### Why Use Skills?
+
+1. **一致性** - 所有DLC操作输出格式统一
+2. **简洁性** - 比长bash命令更易读
+3. **可靠性** - 内置错误处理和输出格式化
+4. **可维护性** - skill更新后，所有agent自动受益
+
+### When to Use Skills vs Bash
+
+| 场景 | 推荐方式 |
+|------|---------|
+| 查看状态/日志/监控 | ✅ **使用Skills** |
+| 提交新任务 | 使用 `submit_batch.py` |
+| 修改脚本配置 | 直接编辑脚本文件 |
+| 复杂查询（如失败分析） | 结合使用：先用skill获取列表，再bash分析 |
+
+---
+
 ## Operations Playbook
 
 ### 1. Submit a Batch Job
@@ -127,6 +158,13 @@ To change runtime behavior, edit `scripts/dlc/run_task.sh`:
 
 ### 3. Check Job Status
 
+**Recommended: Use Skills for quick status checks**
+- `/dlc-status` - Quick overview of all job statuses
+- `/dlc-count` - Count jobs by status
+- `/dlc-jobs <filter>` - List jobs with optional name filter
+- `/dlc-logs <job_id>` - View job logs
+
+**Direct commands (when skills don't meet needs):**
 ```bash
 # List all jobs in the workspace
 dlc get jobs --workspace_id 270969

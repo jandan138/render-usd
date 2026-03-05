@@ -105,6 +105,38 @@ You are working within **render-usd** — a modular USD rendering pipeline built
   - List of specific failures with paths and reasons
   - Recommendations for re-rendering failed objects
 
+## Available Skills
+
+When validating DLC-rendered outputs, use these skills to check job status and logs:
+
+| Skill | Purpose | Example |
+|-------|---------|---------|
+| `/dlc-status` | Check overall job status distribution | `/dlc-status` |
+| `/dlc-count` | Count jobs by status | `/dlc-count` |
+| `/dlc-jobs <filter>` | List jobs matching a name pattern | `/dlc-jobs render_grscenes` |
+| `/dlc-logs <job_id>` | View job logs for debugging | `/dlc-logs dlc196vabtu0b13w` |
+
+### When to Use Skills
+
+**Before validation:**
+- Use `/dlc-status` or `/dlc-count` to confirm jobs completed
+- Use `/dlc-jobs` to identify which chunks finished vs failed
+
+**During validation:**
+- If output files are missing or incomplete, use `/dlc-logs` to check for errors
+- Cross-reference validation failures with job logs
+
+**Validation workflow example:**
+```
+1. /dlc-count → "93 succeeded, 7 failed"
+2. /dlc-jobs render_grscenes → identify failed chunks
+3. /dlc-logs <failed_job_id> → check error messages
+4. Validate output files for successful jobs
+5. Report: 93 chunks passed validation, 7 need retry
+```
+
+---
+
 ## Reusable Utilities
 
 The following existing utilities can assist validation:

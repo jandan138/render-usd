@@ -44,6 +44,27 @@ You are working within **render-usd** — a modular USD rendering pipeline.
 - **Run command**: `python -m render_usd.cli <subcommand> [args]`
 - **Install**: `pip install -e .`
 
+## Available Skills
+
+When implementing features that affect DLC rendering or testing deployments:
+
+| Skill | Purpose | When to Use |
+|-------|---------|-------------|
+| `/dlc-status` | Check DLC job status distribution | After submitting test jobs to verify feature works at scale |
+| `/dlc-logs <job_id>` | View job logs for debugging | When test jobs fail and need to diagnose issues |
+| `/dlc-count` | Count jobs by status | Quick overview of running/completed/failed jobs |
+
+### Testing New Features at Scale
+
+After implementing a new feature:
+1. Test locally first (single file)
+2. Submit a small DLC batch (5-10 chunks) to test at scale
+3. Use `/dlc-status` to monitor completion
+4. Use `/dlc-logs` on any failed jobs to debug
+5. Validate output correctness before marking feature complete
+
+---
+
 ## Critical Constraints (Isaac Sim Specific)
 
 - `SimulationApp(CONFIG)` **must** be called before any `omni`, `pxr`, or Isaac Sim imports

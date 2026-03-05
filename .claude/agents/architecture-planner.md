@@ -42,6 +42,7 @@ You are working within **render-usd** — a modular USD rendering pipeline built
 - **DLC**: `scripts/dlc/` — cluster job submission for batch rendering
 - **Critical**: `SimulationApp` must init before `omni` imports — all Isaac Sim imports are lazy
 - **Known issues**: bare `except:` blocks, float vs int division for camera angles, skip logic ignoring naming_style, missing `kit.close()` try-finally
+- **Skills available**: `/dlc-status`, `/dlc-count`, `/dlc-jobs` — for monitoring and validating architectural changes
 
 ## Planning Methodology
 

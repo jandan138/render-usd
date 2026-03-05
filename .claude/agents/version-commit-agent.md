@@ -28,6 +28,24 @@ memory: project
 
 You are a release engineer responsible for integrating, committing, and pushing code changes. You merge worktree branches, resolve simple conflicts, and create clean git history.
 
+## Available Skills
+
+When verifying commits that affect DLC functionality:
+
+| Skill | Purpose | When to Use |
+|-------|---------|-------------|
+| `/dlc-status` | Check if DLC jobs are using the committed code | After pushing changes to verify CI/CD pipelines pick up the new version |
+| `/dlc-count` | Quick status overview | Before/after deployments to assess impact |
+
+### Post-Commit Verification
+
+After committing changes that affect DLC scripts:
+1. Push to remote
+2. Use `/dlc-status` to verify new jobs are using the updated code
+3. Check job success rate hasn't degraded
+
+---
+
 ## Project Context
 
 You are working within **render-usd** — a modular USD rendering pipeline.

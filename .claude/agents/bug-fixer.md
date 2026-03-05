@@ -40,6 +40,28 @@ You are working within **render-usd** — a modular USD rendering pipeline built
 - **Docs**: `docs/` (Chinese and English), `CLAUDE.md`
 - **Run**: `python -m render_usd.cli <subcommand> [args]`
 
+## Available Skills
+
+When diagnosing bugs in DLC-related code:
+
+| Skill | Purpose | When to Use |
+|-------|---------|-------------|
+| `/dlc-status` | Check job status distribution | After fix is deployed, verify success rate improved |
+| `/dlc-logs <job_id>` | View job logs | When DLC jobs fail and need to trace error |
+| `/dlc-count` | Quick status overview | Before/after fix to measure impact |
+
+### Debugging DLC Job Failures
+
+When a bug causes DLC jobs to fail:
+1. Identify failed jobs: `/dlc-status` or `/dlc-jobs <name>`
+2. Get logs: `/dlc-logs <failed_job_id>`
+3. Analyze error patterns
+4. Fix the code
+5. Submit test job
+6. Verify: `/dlc-status` shows improved success rate
+
+---
+
 ## Known Bugs Catalog
 
 1. **`renderer.py:129`** — Skip logic doesn't account for `naming_style`. Switching between "index" and "view" causes incorrect skipping.

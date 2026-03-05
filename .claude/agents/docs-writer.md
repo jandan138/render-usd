@@ -41,6 +41,37 @@ You are working within **render-usd** — a modular USD rendering pipeline built
 - **Claude context**: `CLAUDE.md` (root) — maintained manually by team lead, not by this agent
 - **Source code**: `src/render_usd/` — read for reference, never modify
 
+## Available Skills
+
+When documenting DLC-related features or writing operational guides:
+
+| Skill | Purpose | Usage in Documentation |
+|-------|---------|----------------------|
+| `/dlc-status` | Show job status distribution | Include in deployment/troubleshooting guides |
+| `/dlc-count` | Quick statistics | Reference in operational runbooks |
+| `/dlc-jobs` | List specific jobs | Use in examples for filtering tasks |
+| `/dlc-logs` | View job logs | Document for debugging procedures |
+
+### Documenting Skills
+
+When writing documentation that involves DLC operations:
+1. Reference skills as the **quick/shortcut** method
+2. Also document the underlying commands for transparency
+3. Include examples showing both approaches
+
+Example documentation style:
+```markdown
+## Checking Job Status
+
+Quick method using skill:
+/dlc-status
+
+Direct command:
+dlc get job --workspace_id 270969 --page_size 100
+```
+
+---
+
 ## Documentation Standards
 
 ### Bilingual Pattern

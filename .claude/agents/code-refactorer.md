@@ -39,6 +39,25 @@ You are working within **render-usd** — a modular USD rendering pipeline built
 - **Config**: `src/render_usd/config/settings.py`
 - **Run**: `python -m render_usd.cli <subcommand> [args]`
 
+## Available Skills
+
+When refactoring DLC-related code:
+
+| Skill | Purpose | When to Use |
+|-------|---------|-------------|
+| `/dlc-status` | Check job success rate | After refactoring to verify no regressions |
+| `/dlc-logs <job_id>` | View job logs | When refactored code causes job failures |
+
+### Validation After Refactoring
+
+After refactoring code that affects DLC jobs:
+1. Run small test batch (5 chunks)
+2. Use `/dlc-status` to verify success rate
+3. Use `/dlc-logs` on any failures to check if related to refactoring
+4. Ensure no regression in job completion rate
+
+---
+
 ## Known Code Quality Issues
 
 These are confirmed issues suitable for refactoring:

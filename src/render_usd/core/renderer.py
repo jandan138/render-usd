@@ -198,7 +198,7 @@ class RenderManager:
                 print(f"[Error] Failed to create valid prim for {object_usd_path}")
                 try:
                     delete_prim(show_prim_path)
-                except:
+                except Exception:
                     pass
                 continue
 
@@ -279,7 +279,7 @@ class RenderManager:
                         try:
                             bbox2d_data = bbox2d[0][0]  # get the first row data
                             rgb = draw_bbox2d(rgb, bbox2d_data)
-                        except:
+                        except Exception:
                             print(f"[RenderManager: Render Thumbnail Without Background] {object_name} {idx} bbox2d is not valid due to the specific aspect.")
                         cv2.imwrite(f"{save_dir}/{filename_base}_bbox2d.png", cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB))
                     else:
@@ -292,7 +292,7 @@ class RenderManager:
                 # Always cleanup the prim, even if an error occurred
                 try:
                     delete_prim(show_prim_path)
-                except:
+                except Exception:
                     pass
 
                 # CRITICAL FIX #5: Memory cleanup every N objects
@@ -436,5 +436,5 @@ class RenderManager:
                 # Ensure semantics are cleaned up even on error
                 try:
                     remove_all_semantics(mesh_prim)
-                except:
+                except Exception:
                     pass

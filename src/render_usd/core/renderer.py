@@ -1,11 +1,13 @@
 import os
+import gc
+import traceback
+from pathlib import Path
+from typing import Tuple, List, Optional, Union
+
 import cv2
 import numpy as np
-import gc
 from tqdm import tqdm
-from pathlib import Path
 from natsort import natsorted
-from typing import Tuple, List, Optional, Union
 
 import omni
 import omni.kit.commands
@@ -285,7 +287,6 @@ class RenderManager:
 
             except Exception as e:
                 print(f"[Error] Unexpected error processing {object_usd_path}: {e}")
-                import traceback
                 traceback.print_exc()
             finally:
                 # Always cleanup the prim, even if an error occurred
@@ -300,39 +301,6 @@ class RenderManager:
                 if (idx_obj + 1) % 50 == 0:
                     gc.collect()
                     print(f"[Memory] Garbage collected after {idx_obj + 1} objects")
-                 
-            os.makedirs(save_dir, exist_ok=True)
-            for idx, camera in enumerate(cameras):
-                # Get RGBA and composite onto dark gray background
-                rgba = get_src(camera, "rgba")
-                if rgba is not None and rgba.shape[2] == 4:
-                    alpha = rgba[:, :, 3:4].astype(np.float32) / 255.0
-                    bg = np.full_like(rgba[:, :, :3], 40, dtype=np.float32)  # dark gray RGB(40,40,40)
-                    rgb = (rgba[:, :, :3].astype(np.float32) * alpha + bg * (1.0 - alpha)).astype(np.uint8)
-                else:
-                    rgb = get_src(camera, "rgb")
-
-                # Determine filename based on naming style
-                filename_base = f"{object_name}_{idx}"
-                if naming_style == "view":
-                    if sample_number == 4 and init_azimuth_angle == 0:
-                        view_names = {0: "front", 1: "left", 2: "back", 3: "right"}
-                        if idx in view_names:
-                            filename_base = view_names[idx]
-                    else:
-                        print(f"[Warning] 'view' naming style requires sample_number=4 and init_azimuth_angle=0. Falling back to index style.")
-
-                if show_bbox2d:
-                    bbox2d = get_src(camera, "bbox2d_tight")
-                    try:
-                        bbox2d_data = bbox2d[0][0]  # get the first row data
-                        rgb = draw_bbox2d(rgb, bbox2d_data)
-                    except:
-                        print(f"[RenderManager: Render Thumbnail Without Background] {object_name} {idx} bbox2d is not valid due to the specific aspect.")
-                    cv2.imwrite(f"{save_dir}/{filename_base}_bbox2d.png", cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB))
-                else:
-                    cv2.imwrite(f"{save_dir}/{filename_base}.png", cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB))
-            delete_prim(show_prim_path)
 
     def render_thumbnail_with_bg(self, scene_usd_path, object_usd_dir, thumbnail_with_bg_dir, show_bbox2d=True):
         """
@@ -464,7 +432,6 @@ class RenderManager:
                     print(f"[Memory] Garbage collected after {index + 1} scene instances")
             except Exception as e:
                 print(f"[Error] Unexpected error processing {mesh_prim_name}: {e}")
-                import traceback
                 traceback.print_exc()
                 # Ensure semantics are cleaned up even on error
                 try:

@@ -10,13 +10,14 @@ CHUNK_TOTAL=$3 # 参数3: 总分块数 (例如 30)
 # 如果没有提供第4个参数，则使用默认的 ID 列表
 DATA_SOURCES=${4:-"d-mzps5b7joy2axmqpa8,d-d49o5g0h2818sw8j1g,d-8wz4emfs21s5ajs9oz"}
 # 参数5: 自定义 run_task.sh 参数 (可选)
-# 默认为 batch 模式 (chunk_id chunk_total)，也可传入其他模式参数
+# 默认为 grscenes100 batch 模式 (chunk_id chunk_total)，也可传入其他模式参数
 # 例如: "render_custom /path/to/assets" 或 "single /path/to/file.usd /output"
 # 检查是否需要添加 --overwrite 标志
 if [[ "$5" == *"--overwrite"* ]]; then
     # 如果 command_args 包含 --overwrite，提取实际的命令参数
     COMMAND_ARGS="${5//--overwrite/} true"
 else
+    # 默认使用 grscenes100 模式（通过传递 chunk_id 和 chunk_total 触发 run_task.sh 的 batch 分支）
     COMMAND_ARGS=${5:-"$CHUNK_ID $CHUNK_TOTAL"}
 fi
 

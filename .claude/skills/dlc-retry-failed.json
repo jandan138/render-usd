@@ -1,0 +1,17 @@
+{
+  "name": "dlc-retry-failed",
+  "description": "重试失败的DLC任务",
+  "prompt": "查找指定名称的失败DLC任务，并重新提交这些任务。先显示发现的失败任务，等待用户确认后再重试。",
+  "args": [
+    {
+      "name": "name",
+      "description": "任务名称前缀（如 render_grscenes_fixed_v2）",
+      "required": true
+    }
+  ],
+  "command": "bash",
+  "command_args": [
+    "-c",
+    "echo \"=== 查找失败任务: {{name}} ===\" && ./dlc get job --workspace_id 270969 --display_name_regex '{{name}}' --page_size 100 2>/dev/null | grep 'Failed' | awk -F'|' '{print $2, $1}' | sed 's/^[[:space:]]*//' && echo '' && echo '发现以上失败任务。如需重试，请手动执行:' && echo 'bash scripts/dlc/launch_job.sh <task_name> <chunk_id> <chunk_total>'"
+  ]
+}

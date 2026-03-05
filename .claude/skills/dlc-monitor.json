@@ -1,0 +1,17 @@
+{
+  "name": "dlc-monitor",
+  "description": "持续监控DLC任务状态（每30秒刷新）",
+  "prompt": "持续监控指定名称的DLC任务状态，每30秒刷新一次。按Ctrl+C停止监控。",
+  "args": [
+    {
+      "name": "name",
+      "description": "任务名称过滤（如 render_grscenes_fixed_v2）",
+      "required": true
+    }
+  ],
+  "command": "bash",
+  "command_args": [
+    "-c",
+    "echo \"=== 监控任务: {{name}} (按Ctrl+C停止) ===\" && while true; do clear; date '+%Y-%m-%d %H:%M:%S'; echo ''; ./dlc get job --workspace_id 270969 --display_name_regex '{{name}}' --page_size 100 2>/dev/null | grep '{{name}}' | awk -F'|' '{print $2, $5}' | sed 's/^[[:space:]]*//' | sort | uniq -c | sort -rn | awk '{printf \"%-10s %3d\\n\", $2, $1}'; echo ''; echo '总计:'; ./dlc get job --workspace_id 270969 --display_name_regex '{{name}}' --page_size 100 2>/dev/null | grep '{{name}}' | wc -l | awk '{print \"  \" $1 \" 个任务\"}'; sleep 30; done"
+  ]
+}

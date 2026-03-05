@@ -1,0 +1,17 @@
+{
+  "name": "dlc-jobs",
+  "description": "列出DLC任务，可按名称过滤",
+  "prompt": "列出PAI-DLC集群中的任务。如果用户提供了名称过滤条件，只显示匹配的任务。显示JobId、名称、状态和创建时间。",
+  "args": [
+    {
+      "name": "filter",
+      "description": "任务名称过滤（可选，如 render_grscenes）",
+      "required": false
+    }
+  ],
+  "command": "bash",
+  "command_args": [
+    "-c",
+    "if [ -n '{{filter}}' ]; then ./dlc get job --workspace_id 270969 --display_name_regex '{{filter}}' --page_size 50 2>/dev/null | grep -E '{{filter}}|NAME|JobId|Status|CreateTime'; else ./dlc get job --workspace_id 270969 --page_size 50 2>/dev/null; fi"
+  ]
+}

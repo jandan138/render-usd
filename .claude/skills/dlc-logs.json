@@ -1,0 +1,22 @@
+{
+  "name": "dlc-logs",
+  "description": "查看DLC任务日志",
+  "prompt": "查看指定DLC任务的日志。需要JobId作为参数。默认显示最近100行日志。",
+  "args": [
+    {
+      "name": "job_id",
+      "description": "DLC任务JobId（必填）",
+      "required": true
+    },
+    {
+      "name": "lines",
+      "description": "显示行数（默认100）",
+      "required": false
+    }
+  ],
+  "command": "bash",
+  "command_args": [
+    "-c",
+    "LINES=${2:-100}; echo \"=== 任务 $1 日志 (最近 $LINES 行) ===\" && ./dlc logs $1 master-0 -e pai-dlc.cn-beijing.aliyuncs.com -n $LINES 2>/dev/null || echo '获取日志失败，请检查JobId是否正确'"
+  ]
+}

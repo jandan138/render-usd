@@ -1,0 +1,10 @@
+{
+  "name": "dlc-count",
+  "description": "统计DLC任务数量",
+  "prompt": "统计当前DLC工作空间中的任务总数，按状态分类计数。",
+  "command": "bash",
+  "command_args": [
+    "-c",
+    "echo '=== DLC任务统计 ===' && ./dlc get job --workspace_id 270969 --page_size 200 2>/dev/null | tail -n +4 | grep -E '\|' | wc -l | xargs -I {} echo '总任务数: {}' && echo '' && ./dlc get job --workspace_id 270969 --page_size 200 2>/dev/null | awk -F'|' '{print $5}' | sed 's/^[[:space:]]*//' | sort | uniq -c | sort -rn | awk '{printf \"%-15s %4d\\n\", $2, $1}'"
+  ]
+}

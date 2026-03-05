@@ -248,7 +248,7 @@ class RenderManager:
                     print(f"[Error] Skipping this asset and continuing...")
                     try:
                         delete_prim(show_prim_path)
-                    except:
+                    except Exception:
                         pass
                     continue
 

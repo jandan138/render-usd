@@ -221,9 +221,8 @@ class RenderManager:
                 center = (bbox_min + bbox_max) / 2
                 distance = np.linalg.norm(bbox_max - bbox_min) * 1.0
 
-                # Clamp distance to reasonable range to prevent numerical instability
-                distance = np.clip(distance, 0.1, 100.0)
-
+                # Clamp minimum distance to prevent division-by-zero / camera-at-origin
+                distance = max(distance, 0.1)
                 for i in range(sample_number):
                     # Calculate azimuth angle: 0, 90, 180, 270 degrees
                     # Mapping (assuming standard coordinate system +X=Front, +Y=Left):

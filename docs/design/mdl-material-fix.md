@@ -2,6 +2,8 @@
 
 > Date: 2026-03-04
 > Status: Implemented & Tested (DLC Job `dlc1k9aayxi3arv6`)
+>
+> **⚠️ Root Cause Correction (2026-03-11)**: Section 3 of this report contains an incorrect root cause analysis. The MDL relative paths in USD files (`../../../../Material/mdl/`, 4 levels up) actually resolve correctly. The real cause of red renders is that the custom KooPbr MDL module (`::KooPbr::KooMtl`) is not in Isaac Sim's default search paths, while OmniUe4 modules are built-in and work without extra configuration. See **[correction report](./mdl-material-fix-correction.md)**.
 
 **[中文版](./mdl-material-fix_zh.md)**
 

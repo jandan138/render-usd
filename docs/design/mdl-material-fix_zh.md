@@ -2,6 +2,8 @@
 
 > 日期: 2026-03-04
 > 状态: 已实现并测试（DLC 任务 `dlc1k9aayxi3arv6`）
+>
+> **⚠️ 根因分析修正 (2026-03-11)**：本文第 3 节的根因分析有误。实际上 USD 文件中的 MDL 相对路径（`../../../../Material/mdl/`，4 级）是正确的，能正常解析。泛红的真正原因是 KooPbr 自定义 MDL 模块（`::KooPbr::KooMtl`）不在 Isaac Sim 默认搜索路径中，而 OmniUe4 模块是内置的所以不受影响。详见 **[修正报告](./mdl-material-fix-correction.md)**。
 
 **[English Version](./mdl-material-fix.md)**
 

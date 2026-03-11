@@ -21,7 +21,7 @@ New output format feature. Use feature-implementer.
 </example>
 
 Do NOT use this agent for fixing existing bugs (use bug-fixer) or pure restructuring without new functionality (use code-refactorer)."
-model: sonnet
+model: opus
 color: green
 memory: project
 isolation: worktree

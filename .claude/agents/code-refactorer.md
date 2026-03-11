@@ -21,7 +21,7 @@ Restructuring for code reuse without new features. Use code-refactorer.
 </example>
 
 Do NOT use this agent for adding new features (use feature-implementer) or fixing specific bugs (use bug-fixer)."
-model: sonnet
+model: opus
 color: yellow
 memory: project
 isolation: worktree

@@ -21,7 +21,7 @@ Runtime crash due to missing function. Use bug-fixer to diagnose and implement t
 </example>
 
 Do NOT use this agent for adding new features (use feature-implementer) or code quality improvements without a specific bug (use code-refactorer)."
-model: sonnet
+model: opus
 color: red
 memory: project
 isolation: worktree

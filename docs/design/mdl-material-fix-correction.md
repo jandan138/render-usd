@@ -130,3 +130,10 @@ export MDL_SYSTEM_PATH="/cpfs/.../GRScenes-test1/Material/mdl"
 - **Uniform directory structure**: All assets at `GRScenes_assets/Category/HASH/usd/HASH.usd` (depth 5)
 - **Uniform symlinks**: All 52,907 `usd/` dirs have `textures -> ../../../../Material/mdl/textures` (no Materials symlink in any)
 - **Scene files**: `GRScenes100/` layout.usd files override MDL paths to `../../../Material/mdl/` (3 levels, correct from their location)
+
+---
+
+## See Also
+
+- **[MDL 导入方式修复方案](./mdl-import-fix-proposal.md)** — 将绝对导入 `::KooPbr` 改为相对导入 `.::KooPbr` 的替代修复方案（数据集侧）
+- **[Carbonite 新手入门指南](../guides/carbonite-beginner-guide.md)** — carb.settings 等基础概念解释

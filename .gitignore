@@ -67,3 +67,4 @@ miniconda.sh
 
 # DLC Client (binary at repo root)
 /dlc
+.worktrees/

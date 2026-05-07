@@ -80,8 +80,8 @@ d-mzps5b7joy2axmqpa8,d-d49o5g0h2818sw8j1g,d-8wz4emfs21s5ajs9oz,d-f1dsz5nbamclxgy
 
 ### Resource Defaults
 ```bash
-GPU=1, CPU=16, Memory=118Gi, SharedMemory=118Gi
-Resource_ID=quotalplclkpgjgv
+GPU=1, CPU=14, Memory=100Gi, SharedMemory=100Gi
+Resource_ID=quota1r947pmazvk
 Image=pj4090acr-registry-vpc.cn-beijing.cr.aliyuncs.com/pj4090/yangsizhe:isaacsim41-cuda118
 Timeout=480 minutes (8h)
 ```

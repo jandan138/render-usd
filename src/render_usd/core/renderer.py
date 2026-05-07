@@ -171,7 +171,18 @@ class RenderManager:
                 save_dir = thumbnail_wo_bg_dir / object_name
 
             if not overwrite:
-                has_rendered = os.path.exists(save_dir) and len([f for f in os.listdir(save_dir) if f.startswith(object_name) and f.endswith('.png')]) >= sample_number
+                has_rendered = False
+                if naming_style == "view" and sample_number == 4:
+                    # View mode: check for front/back/left/right.png
+                    view_files = ["front.png", "back.png", "left.png", "right.png"]
+                    has_rendered = all((save_dir / f).exists() for f in view_files)
+                else:
+                    # Index mode: check for object_name_{idx}.png
+                    has_rendered = os.path.exists(save_dir) and len([
+                        f for f in os.listdir(save_dir) 
+                        if f.startswith(object_name) and f.endswith('.png')
+                    ]) >= sample_number
+                
                 if has_rendered:
                     continue
 

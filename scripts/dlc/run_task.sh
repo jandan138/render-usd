@@ -79,11 +79,19 @@ elif [ "$1" == "render_custom" ]; then
 
     echo "Running Render Custom Task: $ASSETS_DIR (naming: $NAMING_STYLE, chunk: $CHUNK_ID/$CHUNK_TOTAL, overwrite: ${OVERWRITE:-false})"
 
-    CMD="python -m render_usd.cli render_custom --assets_dir \"$ASSETS_DIR\" --naming_style \"$NAMING_STYLE\" --chunk_id \"$CHUNK_ID\" --chunk_total \"$CHUNK_TOTAL\""
-    if [ -n "$OVERWRITE" ]; then
-        CMD="$CMD --overwrite"
+    # 验证 assets_dir 存在
+    if [ ! -d "$ASSETS_DIR" ]; then
+        echo "ERROR: Assets directory does not exist: $ASSETS_DIR"
+        exit 1
     fi
-    eval "$CMD"
+
+    # 直接执行，避免 eval 命令注入风险
+    python -m render_usd.cli render_custom \
+        --assets_dir "$ASSETS_DIR" \
+        --naming_style "$NAMING_STYLE" \
+        --chunk_id "$CHUNK_ID" \
+        --chunk_total "$CHUNK_TOTAL" \
+        ${OVERWRITE:+--overwrite}
 
 elif [ "$1" == "grscenes" ]; then
     # GRScenes 场景渲染模式 (GRScenes scene-level rendering)

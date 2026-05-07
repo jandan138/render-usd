@@ -62,11 +62,11 @@ IMAGE=${DLC_IMAGE:-"pj4090acr-registry-vpc.cn-beijing.cr.aliyuncs.com/pj4090/yan
 # 默认为 /cpfs/shared/simulation/zhuzihou/dev/render-usd
 CODE_ROOT=${DLC_CODE_ROOT:-"/cpfs/shared/simulation/zhuzihou/dev/render-usd"}
 
-# 资源配置（保持当前 render-usd 配置）
+# 资源配置（适配 quota1r947pmazvk：1卡/14C/100Gi）
 WORKER_GPU=1
-WORKER_CPU=16
-WORKER_MEMORY=118Gi
-WORKER_SHARED_MEMORY=118Gi
+WORKER_CPU=14
+WORKER_MEMORY=100Gi
+WORKER_SHARED_MEMORY=100Gi
 RESOURCE_ID=${DLC_RESOURCE_ID:-"quota1r947pmazvk"}
 
 # 作业超时设置（默认8小时=480分钟，0表示无限制）

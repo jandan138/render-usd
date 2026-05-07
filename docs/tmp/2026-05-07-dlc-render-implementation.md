@@ -83,16 +83,35 @@
 - [x] Syntax checks pass
 - [x] Dry-run succeeds
 
-## Next Steps
+## Job Submission History
 
-1. Submit actual DLC batch job:
-```bash
-python scripts/dlc/submit_batch.py \
-    --total 75 \
-    --name test0_render_views \
-    --data_sources "d-mzps5b7joy2axmqpa8,d-d49o5g0h2818sw8j1g,d-8wz4emfs21s5ajs9oz,d-f1dsz5nbamclxgydo8" \
-    --command_args "render_custom /cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/dataset/GRScenes_assets view {chunk_id} {chunk_total} --overwrite"
-```
+### Round 1 (test): 2026-05-07 17:07
+1 test job via submit_batch.py → Running
 
-2. Monitor first few chunks for successful rendering
-3. Verify output structure matches expected: `<category>/<uid>/{front,back,left,right}.png`
+### Round 2 (first batch): 2026-05-07 17:08
+75 jobs via submit_batch.py → truncated by `head -100` pipe → only chunks 0-1 submitted → Running
+
+### Round 3 (failed batch): 2026-05-07 17:10
+73 jobs (chunks 2-74) via bash for loop → **ALL FAILED**
+- Root cause: `{chunk_id}` and `{chunk_total}` passed as literal strings (not expanded)
+- `run_task.sh` received `--chunk_id {chunk_id}` which caused argparse to fail
+- All jobs failed within ~9 minutes
+
+### Round 4 (resubmit): 2026-05-07 17:46
+73 jobs (chunks 2-74) via Python with proper variable expansion → ALL accepted
+- 67 Queuing, 3 EnvPreparing, 3 Running
+
+## Final State (149 DLC jobs total)
+
+| Status | Count | Chunks |
+|--------|-------|--------|
+| Running | 6 | 0, 1, test + 3 resubmitted |
+| Queuing | 67 | 2-74 (batch resubmit) |
+| EnvPreparing | 3 | 2-74 (starting up) |
+| Failed | 73 | 2-74 (round 3, historic) |
+
+## Key Lessons
+
+1. **Never use bash for loop for template variable expansion** — always use Python or submit_batch.py
+2. **Don't pipe DLC submission output through `head`** — it send SIGPIPE and kills the process
+3. **DLC accepts duplicate job names** — creates new jobs with same display name but different JobId

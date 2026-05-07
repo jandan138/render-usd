@@ -34,8 +34,13 @@ if [ $# -ge 5 ]; then
     # 精确处理 --overwrite（基于词的分割，避免部分匹配）
     if [[ " $COMMAND_ARGS " == *" --overwrite "* ]]; then
         COMMAND_ARGS=$(echo "$COMMAND_ARGS" | awk '{
-            for(i=1;i<=NF;i++) if($i != "--overwrite") printf "%s%s", sep, $i; sep=" "
-        } END{print ""}')
+            for(i=1;i<=NF;i++) {
+                if($i != "--overwrite") {
+                    printf "%s%s", sep, $i
+                    sep=" "
+                }
+            }
+        }')
         COMMAND_ARGS="$COMMAND_ARGS true"
     fi
 else
@@ -62,7 +67,7 @@ WORKER_GPU=1
 WORKER_CPU=16
 WORKER_MEMORY=118Gi
 WORKER_SHARED_MEMORY=118Gi
-RESOURCE_ID=${DLC_RESOURCE_ID:-"quotalplclkpgjgv"}
+RESOURCE_ID=${DLC_RESOURCE_ID:-"quota1r947pmazvk"}
 
 # 作业超时设置（默认8小时=480分钟，0表示无限制）
 JOB_TIMEOUT=${DLC_JOB_TIMEOUT:-480}

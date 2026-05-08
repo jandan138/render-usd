@@ -111,7 +111,7 @@ def IsMeshXform(prim):
 #==============================================================================
 #                             COMPUTE UTILS
 #==============================================================================
-def compute_bbox(prim: Usd.Prim) -> np.ndarray:
+def _compute_authored_world_bbox(prim: Usd.Prim) -> np.ndarray:
     """
     Compute Bounding Box using ComputeWorldBound at UsdGeom.Imageable
 
@@ -129,6 +129,128 @@ def compute_bbox(prim: Usd.Prim) -> np.ndarray:
     bbox_max = bound_range.max
     bound_range = np.array([bbox_min, bbox_max])
     return bound_range
+
+
+def _compute_single_mesh_point_bbox(prim: Usd.Prim) -> np.ndarray | None:
+    time = Usd.TimeCode.Default()
+    imageable: UsdGeom.Imageable = UsdGeom.Imageable(prim)
+    if not _is_default_visible_imageable(imageable, time):
+        return None
+
+    points = prim.GetAttribute("points").Get()
+    try:
+        points = np.array(to_list(points), dtype=float)
+        if points.size == 0:
+            return None
+        if points.ndim != 2 or points.shape[1] != 3:
+            return None
+    except (TypeError, ValueError):
+        return None
+
+    xform_world_transform = np.array(
+        imageable.ComputeLocalToWorldTransform(time),
+        dtype=float,
+    )
+
+    ones = np.ones((points.shape[0], 1))
+    points_h = np.hstack([points, ones])
+    points_transformed_h = np.dot(points_h, xform_world_transform)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        points_transformed = (
+            points_transformed_h[:, :3]
+            / points_transformed_h[:, 3][:, np.newaxis]
+        )
+    valid_points_mask = np.isfinite(points_transformed).all(axis=1)
+    points_transformed = points_transformed[valid_points_mask]
+    if points_transformed.size == 0:
+        return None
+    return np.array(
+        [np.min(points_transformed, axis=0), np.max(points_transformed, axis=0)]
+    )
+
+
+def _is_default_visible_imageable(imageable: UsdGeom.Imageable, time: Usd.TimeCode) -> bool:
+    if imageable.ComputeEffectiveVisibility(time=time) == UsdGeom.Tokens.invisible:
+        return False
+    return imageable.ComputePurpose() == UsdGeom.Tokens.default_
+
+
+def _is_valid_fallback_bbox(bbox: np.ndarray | None) -> bool:
+    if bbox is None or not np.isfinite(bbox).all():
+        return False
+    return np.linalg.norm(bbox[1] - bbox[0]) > 0
+
+
+def _compute_boundable_bbox(prim: Usd.Prim) -> np.ndarray | None:
+    time = Usd.TimeCode.Default()
+    imageable: UsdGeom.Imageable = UsdGeom.Imageable(prim)
+    if not _is_default_visible_imageable(imageable, time):
+        return None
+
+    boundable: UsdGeom.Boundable = UsdGeom.Boundable(prim)
+    bound_range = boundable.ComputeWorldBound(time, UsdGeom.Tokens.default_).ComputeAlignedBox()
+    bbox = np.array([bound_range.min, bound_range.max])
+    if not _is_valid_fallback_bbox(bbox):
+        return None
+    return bbox
+
+
+def _union_bbox(first: np.ndarray | None, second: np.ndarray | None) -> np.ndarray | None:
+    if first is None:
+        return second
+    if second is None:
+        return first
+    return np.array(
+        [
+            np.minimum(first[0], second[0]),
+            np.maximum(first[1], second[1]),
+        ]
+    )
+
+
+def _compute_mesh_point_bbox(prim: Usd.Prim) -> np.ndarray | None:
+    bbox = None
+
+    if prim.IsA(UsdGeom.Mesh):
+        bbox = _compute_single_mesh_point_bbox(prim)
+    elif prim.IsA(UsdGeom.Boundable):
+        bbox = _compute_boundable_bbox(prim)
+
+    for child in prim.GetChildren():
+        bbox = _union_bbox(bbox, _compute_mesh_point_bbox(child))
+
+    if not _is_valid_fallback_bbox(bbox):
+        return None
+    return bbox
+
+
+def compute_bbox(
+    prim: Usd.Prim,
+    use_mesh_point_fallback: bool = True,
+    extent_fallback_ratio: float = 5.0,
+) -> np.ndarray:
+    if not np.isfinite(extent_fallback_ratio) or extent_fallback_ratio <= 0:
+        raise ValueError("extent_fallback_ratio must be finite and positive")
+
+    authored_bbox = _compute_authored_world_bbox(prim)
+    if not use_mesh_point_fallback:
+        return authored_bbox
+
+    mesh_bbox = _compute_mesh_point_bbox(prim)
+    if not _is_valid_fallback_bbox(mesh_bbox):
+        return authored_bbox
+
+    if not np.isfinite(authored_bbox).all():
+        return mesh_bbox
+
+    authored_diagonal = np.linalg.norm(authored_bbox[1] - authored_bbox[0])
+    mesh_diagonal = np.linalg.norm(mesh_bbox[1] - mesh_bbox[0])
+    if not np.isfinite(authored_diagonal) or not np.isfinite(mesh_diagonal) or mesh_diagonal <= 0:
+        return authored_bbox
+
+    if authored_diagonal / mesh_diagonal >= extent_fallback_ratio:
+        return mesh_bbox
+    return authored_bbox
             
 #==============================================================================
 #                              ATTRIBUTE UTILS

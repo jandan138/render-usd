@@ -93,6 +93,54 @@ elif [ "$1" == "render_custom" ]; then
         --chunk_total "$CHUNK_TOTAL" \
         ${OVERWRITE:+--overwrite}
 
+elif [ "$1" == "render_manifest" ]; then
+    # Manifest subset rendering mode
+    # Usage: bash run_task.sh render_manifest <manifest_csv> <output_root> [chunk_id] [chunk_total] [overwrite]
+    if [ $# -lt 3 ]; then
+        echo "Usage: bash run_task.sh render_manifest <manifest_csv> <output_root> [chunk_id] [chunk_total] [overwrite]"
+        exit 1
+    fi
+
+    MANIFEST_CSV=$2
+    OUTPUT_ROOT=$3
+    CHUNK_ID=${4:-0}
+    CHUNK_TOTAL=${5:-1}
+    OVERWRITE=${6:-""}
+    OVERWRITE_FLAG=""
+
+    if [ "$OVERWRITE" == "true" ] || [ "$OVERWRITE" == "--overwrite" ]; then
+        OVERWRITE_FLAG="--overwrite"
+    elif [ -n "$OVERWRITE" ] && [ "$OVERWRITE" != "false" ]; then
+        echo "ERROR: overwrite must be 'true', 'false', or '--overwrite', got: $OVERWRITE"
+        exit 1
+    fi
+
+    echo "Running Render Manifest Task: $MANIFEST_CSV -> $OUTPUT_ROOT (chunk: $CHUNK_ID/$CHUNK_TOTAL, overwrite: ${OVERWRITE:-false})"
+
+    if [ ! -f "$MANIFEST_CSV" ]; then
+        echo "ERROR: Manifest CSV does not exist: $MANIFEST_CSV"
+        exit 1
+    fi
+
+    if [ -e "$OUTPUT_ROOT" ] && [ ! -d "$OUTPUT_ROOT" ]; then
+        echo "ERROR: Output root exists but is not a directory: $OUTPUT_ROOT"
+        exit 1
+    fi
+
+    OUTPUT_PARENT=$(dirname "$OUTPUT_ROOT")
+    if [ ! -d "$OUTPUT_PARENT" ]; then
+        echo "ERROR: Output root parent does not exist: $OUTPUT_PARENT"
+        exit 1
+    fi
+
+    python "$CODE_ROOT/scripts/tools/render_rerender_manifest.py" \
+        --manifest_csv "$MANIFEST_CSV" \
+        --output_root "$OUTPUT_ROOT" \
+        --chunk_id "$CHUNK_ID" \
+        --chunk_total "$CHUNK_TOTAL" \
+        --naming_style view \
+        $OVERWRITE_FLAG
+
 elif [ "$1" == "grscenes" ]; then
     # GRScenes 场景渲染模式 (GRScenes scene-level rendering)
     # 用法: bash run_task.sh grscenes <part> <usd> [scene]

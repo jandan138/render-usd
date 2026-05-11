@@ -12,6 +12,7 @@ from render_usd.utils.usd_utils.prim_utils import compute_bbox
 
 DEFAULT_CLASSES = "blank,tiny,suspicious"
 DEFAULT_RECOMMENDED_GROUPS = "object"
+DEFAULT_CENTER_OFFSET_THRESHOLD = 1.0
 STRUCTURAL_CATEGORIES = {"wall", "ground", "ceiling"}
 EDGE_THIN_CATEGORIES = {"column", "window", "threshold"}
 OTHER_CATEGORIES = {"other"}
@@ -25,6 +26,7 @@ MANIFEST_FIELDNAMES = [
     "old_diag",
     "new_diag",
     "diag_ratio",
+    "center_offset_ratio",
     "fallback_changed",
     "rerender_recommended",
     "scan_error",
@@ -89,16 +91,19 @@ def is_rerender_recommended(
     *,
     fallback_changed: bool,
     diag_ratio: float,
+    center_offset_ratio: float = 0.0,
     category_group: str,
     threshold: float,
+    center_offset_threshold: float = 1.0,
     recommended_groups: set[str] | None = None,
 ) -> bool:
     recommended_groups = recommended_groups or {"object"}
+    ratio_recommended = np.isfinite(diag_ratio) and diag_ratio >= threshold
+    center_recommended = np.isfinite(center_offset_ratio) and center_offset_ratio >= center_offset_threshold
     return bool(
         fallback_changed
         and category_group in recommended_groups
-        and np.isfinite(diag_ratio)
-        and diag_ratio >= threshold
+        and (ratio_recommended or center_recommended)
     )
 
 
@@ -117,12 +122,18 @@ def bbox_effect_from_bboxes(old_bbox, new_bbox) -> dict[str, object]:
     fallback_valid = bool(np.isfinite(new_bbox).all() and np.isfinite(new_diag) and new_diag > 0)
     fallback_changed = bool(fallback_valid and not np.allclose(old_bbox, new_bbox))
     diag_ratio = ""
+    center_offset_ratio = ""
     if fallback_valid and np.isfinite(old_diag):
         diag_ratio = old_diag / new_diag
+        old_center = (old_bbox[0] + old_bbox[1]) / 2.0
+        new_center = (new_bbox[0] + new_bbox[1]) / 2.0
+        if np.isfinite(old_center).all() and np.isfinite(new_center).all():
+            center_offset_ratio = np.linalg.norm(old_center - new_center) / new_diag
     return {
         "old_diag": old_diag,
         "new_diag": new_diag,
         "diag_ratio": diag_ratio,
+        "center_offset_ratio": center_offset_ratio,
         "fallback_changed": fallback_changed,
         "scan_error": "",
     }
@@ -145,6 +156,7 @@ def _empty_effect(scan_error: str) -> dict[str, object]:
         "old_diag": "",
         "new_diag": "",
         "diag_ratio": "",
+        "center_offset_ratio": "",
         "fallback_changed": False,
         "scan_error": scan_error,
     }
@@ -155,6 +167,7 @@ def _manifest_row(
     effect: dict[str, object],
     threshold: float,
     recommended_groups: set[str],
+    center_offset_threshold: float = DEFAULT_CENTER_OFFSET_THRESHOLD,
 ) -> dict[str, str]:
     category = asset_row.get("category", "")
     category_group = category_group_for(category)
@@ -162,6 +175,8 @@ def _manifest_row(
     scan_error = str(effect.get("scan_error") or "")
     diag_ratio_value = effect.get("diag_ratio", "")
     numeric_diag_ratio = float(diag_ratio_value) if diag_ratio_value not in {"", None} else 0.0
+    center_offset_ratio_value = effect.get("center_offset_ratio", "")
+    numeric_center_offset_ratio = float(center_offset_ratio_value) if center_offset_ratio_value not in {"", None} else 0.0
     new_diag_value = effect.get("new_diag", "")
     numeric_new_diag = float(new_diag_value) if new_diag_value not in {"", None} else 0.0
     fallback_changed = bool(effect.get("fallback_changed")) and not scan_error
@@ -171,8 +186,10 @@ def _manifest_row(
         recommended = is_rerender_recommended(
             fallback_changed=fallback_changed,
             diag_ratio=numeric_diag_ratio,
+            center_offset_ratio=numeric_center_offset_ratio,
             category_group=category_group,
             threshold=threshold,
+            center_offset_threshold=center_offset_threshold,
             recommended_groups=recommended_groups,
         )
 
@@ -184,6 +201,7 @@ def _manifest_row(
         "old_diag": format_float(effect.get("old_diag", "")),
         "new_diag": format_float(effect.get("new_diag", "")),
         "diag_ratio": format_float(effect.get("diag_ratio", "")),
+        "center_offset_ratio": format_float(effect.get("center_offset_ratio", "")),
         "fallback_changed": format_bool(fallback_changed),
         "rerender_recommended": format_bool(recommended),
         "scan_error": scan_error,
@@ -201,6 +219,7 @@ def scan_asset_rows(
     *,
     class_filter: set[str],
     diag_ratio_threshold: float,
+    center_offset_threshold: float = DEFAULT_CENTER_OFFSET_THRESHOLD,
     bbox_scanner=scan_usd_bbox_effect,
     recommended_groups: set[str] | None = None,
     limit: int | None = None,
@@ -208,6 +227,10 @@ def scan_asset_rows(
 ) -> list[dict[str, str]]:
     if not np.isfinite(diag_ratio_threshold) or diag_ratio_threshold <= 0:
         raise ValueError("diag_ratio_threshold must be finite and positive")
+    if not np.isfinite(center_offset_threshold) or center_offset_threshold < DEFAULT_CENTER_OFFSET_THRESHOLD:
+        raise ValueError(
+            f"center_offset_threshold must be finite and at least {DEFAULT_CENTER_OFFSET_THRESHOLD}"
+        )
 
     recommended_groups = recommended_groups or {"object"}
     manifest_rows = []
@@ -222,7 +245,15 @@ def scan_asset_rows(
             effect = bbox_scanner(Path(asset_row.get("usd_path", "")))
         except Exception as exc:
             effect = _empty_effect(str(exc))
-        manifest_rows.append(_manifest_row(asset_row, effect, diag_ratio_threshold, recommended_groups))
+        manifest_rows.append(
+            _manifest_row(
+                asset_row,
+                effect,
+                diag_ratio_threshold,
+                recommended_groups,
+                center_offset_threshold=center_offset_threshold,
+            )
+        )
 
         if progress_every > 0 and len(manifest_rows) % progress_every == 0:
             print(f"scanned={len(manifest_rows)}")
@@ -248,6 +279,7 @@ def build_summary_markdown(
     source_csv: Path,
     class_filter: set[str],
     diag_ratio_threshold: float,
+    center_offset_threshold: float = DEFAULT_CENTER_OFFSET_THRESHOLD,
     recommended_groups: set[str] | None = None,
 ) -> str:
     recommended_groups = recommended_groups or {"object"}
@@ -267,6 +299,7 @@ def build_summary_markdown(
         f"classes: {','.join(sorted(class_filter))}",
         f"recommended_groups: {','.join(sorted(recommended_groups))}",
         f"diag_ratio_threshold: {diag_ratio_threshold:.6f}",
+        f"center_offset_threshold: {center_offset_threshold:.6f}",
         "",
         "## Totals",
         "",
@@ -293,6 +326,7 @@ def write_outputs(
     source_csv: Path,
     class_filter: set[str],
     diag_ratio_threshold: float,
+    center_offset_threshold: float = DEFAULT_CENTER_OFFSET_THRESHOLD,
     recommended_groups: set[str] | None = None,
 ) -> None:
     recommended_groups = recommended_groups or {"object"}
@@ -306,6 +340,7 @@ def write_outputs(
         source_csv=source_csv,
         class_filter=class_filter,
         diag_ratio_threshold=diag_ratio_threshold,
+        center_offset_threshold=center_offset_threshold,
         recommended_groups=recommended_groups,
     )
     (output_dir / "bbox_rerender_summary.md").write_text(summary)
@@ -316,6 +351,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--asset_quality_csv", required=True, type=Path)
     parser.add_argument("--output_dir", required=True, type=Path)
     parser.add_argument("--diag_ratio_threshold", type=float, default=5.0)
+    parser.add_argument("--center_offset_threshold", type=float, default=DEFAULT_CENTER_OFFSET_THRESHOLD)
     parser.add_argument("--classes", default=DEFAULT_CLASSES)
     parser.add_argument("--recommended_groups", default=DEFAULT_RECOMMENDED_GROUPS)
     parser.add_argument("--limit", type=int, default=None)
@@ -332,6 +368,7 @@ def main() -> None:
         asset_rows,
         class_filter=class_filter,
         diag_ratio_threshold=args.diag_ratio_threshold,
+        center_offset_threshold=args.center_offset_threshold,
         recommended_groups=recommended_groups,
         limit=args.limit,
         progress_every=args.progress_every,
@@ -342,6 +379,7 @@ def main() -> None:
         source_csv=args.asset_quality_csv,
         class_filter=class_filter,
         diag_ratio_threshold=args.diag_ratio_threshold,
+        center_offset_threshold=args.center_offset_threshold,
         recommended_groups=recommended_groups,
     )
     recommended_count = sum(row["rerender_recommended"] == "true" for row in rows)

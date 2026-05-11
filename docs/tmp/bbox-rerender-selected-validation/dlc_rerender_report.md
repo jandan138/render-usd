@@ -129,14 +129,25 @@ Analysis outputs:
 
 Final consumption lists:
 
-- `docs/tmp/bbox-rerender-selected-validation/recovered_ok_assets.csv`: 460 assets whose rerendered outputs are safe bbox-fallback recovery candidates.
+- `docs/tmp/bbox-rerender-selected-validation/recovered_ok_assets.csv`: 460 assets whose rerendered outputs are safe bbox-fallback recovery candidates. These 460 source PNG sets were later copied back in place to the source `GRScenes_assets` tree; see the post-rerender overwrite follow-up below.
 - `docs/tmp/bbox-rerender-selected-validation/residual_low_quality_assets.csv`: 84 assets that remain blank/tiny and should not replace formal outputs.
+
+Post-rerender source overwrite follow-up:
+
+- User-confirmed overwrite scope: `460` recovered `ok` assets only.
+- Source tree updated: `/cpfs/user/zhuzihou/assets/dedup_workspaces/test0_transitive_apply_parallel/dataset/GRScenes_assets`.
+- Source PNGs replaced: `1,840` (`460` assets x `front/left/back/right`).
+- Backup root: `docs/tmp/bbox-rerender-selected-validation/overwrite_460_ok_2026-05-09/source_png_backup/`.
+- Overwrite manifest: `docs/tmp/bbox-rerender-selected-validation/overwrite_460_ok_2026-05-09/overwrite_manifest.csv`.
+- Post-overwrite verification: `460/460` assets have all four source views classified `ok`; `1,840/1,840` source PNG SHA hashes match the rerender outputs.
+- The `84` residual low-quality assets were not copied back.
 
 Remaining operations follow-up:
 
 - Monitor the two zero-row queued DLC jobs until terminal status, or leave them because all manifest outputs are complete.
 - Separate diagnosis for the 79 cabinet and 5 door assets is recorded in `docs/tmp/remaining-cabinet-door-investigation/report.md`.
 - Diagnosis result: do not change the production renderer for the residual 84; mark them as low-quality residuals. A 45-degree view offset can produce at least one usable view for 28 assets, but it does not recover the canonical four-view output contract.
+- Follow-up final current-source verification superseded the operational status of those 84 assets. After the center-offset fix and a fresh residual bbox scan, `83/84` were recovered to four-view `ok` in the current residual bbox pass and copied back with backup/SHA verification; `1/84` remains non-ok (`cabinet/3399337a68a2bb41b4f4ebc20590fd94`).
 
 ## Risks
 

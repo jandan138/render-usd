@@ -59,6 +59,19 @@ def test_recommendation_requires_changed_object_row_above_threshold():
     )
 
 
+def test_recommendation_accepts_large_center_offset_with_same_diag():
+    tool = _load_tool()
+
+    assert tool.is_rerender_recommended(
+        fallback_changed=True,
+        diag_ratio=1.0,
+        center_offset_ratio=2.0,
+        category_group="object",
+        threshold=5.0,
+        center_offset_threshold=1.0,
+    )
+
+
 def test_recommendation_can_include_configured_category_groups():
     tool = _load_tool()
 
@@ -83,7 +96,7 @@ def test_scan_asset_rows_filters_classes_and_recommends_only_object_ratio_matche
     effects = {
         "/tmp/a.usd": {"old_diag": 100.0, "new_diag": 10.0, "diag_ratio": 10.0, "fallback_changed": True},
         "/tmp/b.usd": {"old_diag": 100.0, "new_diag": 10.0, "diag_ratio": 10.0, "fallback_changed": True},
-        "/tmp/c.usd": {"old_diag": 12.0, "new_diag": 12.0, "diag_ratio": 1.0, "fallback_changed": False},
+        "/tmp/c.usd": {"old_diag": 12.0, "new_diag": 12.0, "diag_ratio": 1.0, "center_offset_ratio": 2.0, "fallback_changed": True},
     }
 
     def fake_scanner(path):
@@ -107,8 +120,55 @@ def test_scan_asset_rows_filters_classes_and_recommends_only_object_ratio_matche
     assert rows[0]["scan_error"] == ""
     assert rows[1]["category_group"] == "structural"
     assert rows[1]["rerender_recommended"] == "false"
-    assert rows[2]["fallback_changed"] == "false"
-    assert rows[2]["rerender_recommended"] == "false"
+    assert rows[2]["fallback_changed"] == "true"
+    assert rows[2]["center_offset_ratio"] == "2.000000"
+    assert rows[2]["rerender_recommended"] == "true"
+
+
+def test_scan_asset_rows_honors_non_default_center_offset_threshold():
+    tool = _load_tool()
+    asset_rows = [
+        {"category": "bottle", "uid": "shifted", "class": "blank", "usd_path": "/tmp/shifted.usd"},
+    ]
+
+    def fake_scanner(path):
+        return {
+            "old_diag": 12.0,
+            "new_diag": 12.0,
+            "diag_ratio": 1.0,
+            "center_offset_ratio": 2.0,
+            "fallback_changed": True,
+        }
+
+    rows = tool.scan_asset_rows(
+        asset_rows,
+        class_filter={"blank"},
+        diag_ratio_threshold=5.0,
+        center_offset_threshold=3.0,
+        bbox_scanner=fake_scanner,
+    )
+
+    assert rows[0]["fallback_changed"] == "true"
+    assert rows[0]["center_offset_ratio"] == "2.000000"
+    assert rows[0]["rerender_recommended"] == "false"
+
+
+def test_scan_asset_rows_rejects_invalid_center_offset_threshold():
+    tool = _load_tool()
+
+    for center_offset_threshold in [0, -1, 0.5, float("inf"), float("nan")]:
+        try:
+            tool.scan_asset_rows(
+                [{"category": "bottle", "uid": "shifted", "class": "blank", "usd_path": "/tmp/shifted.usd"}],
+                class_filter={"blank"},
+                diag_ratio_threshold=5.0,
+                center_offset_threshold=center_offset_threshold,
+                bbox_scanner=lambda path: {},
+            )
+        except ValueError as exc:
+            assert "center_offset_threshold" in str(exc)
+        else:
+            raise AssertionError("invalid center offset threshold should fail")
 
 
 def test_scan_asset_rows_preserves_error_rows_as_not_recommended():
@@ -224,6 +284,7 @@ def test_write_outputs_creates_full_recommended_and_summary_files(tmp_path):
     assert [row["uid"] for row in recommended_rows] == ["asset-a"]
     assert "total_scanned: 2" in summary
     assert "recommended: 1" in summary
+    assert "center_offset_threshold: 1.000000" in summary
     assert "tiny: 1" in summary
     assert "blank: 1" in summary
     assert "object: 1" in summary

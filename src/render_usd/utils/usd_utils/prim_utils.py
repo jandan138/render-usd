@@ -181,6 +181,15 @@ def _is_valid_fallback_bbox(bbox: np.ndarray | None) -> bool:
     return np.linalg.norm(bbox[1] - bbox[0]) > 0
 
 
+def _bbox_center_offset_ratio(authored_bbox: np.ndarray, mesh_bbox: np.ndarray) -> float:
+    authored_center = (authored_bbox[0] + authored_bbox[1]) / 2.0
+    mesh_center = (mesh_bbox[0] + mesh_bbox[1]) / 2.0
+    mesh_diagonal = np.linalg.norm(mesh_bbox[1] - mesh_bbox[0])
+    if not np.isfinite(mesh_diagonal) or mesh_diagonal <= 0:
+        return 0.0
+    return float(np.linalg.norm(authored_center - mesh_center) / mesh_diagonal)
+
+
 def _compute_boundable_bbox(prim: Usd.Prim) -> np.ndarray | None:
     time = Usd.TimeCode.Default()
     imageable: UsdGeom.Imageable = UsdGeom.Imageable(prim)
@@ -249,6 +258,9 @@ def compute_bbox(
         return authored_bbox
 
     if authored_diagonal / mesh_diagonal >= extent_fallback_ratio:
+        return mesh_bbox
+
+    if _bbox_center_offset_ratio(authored_bbox, mesh_bbox) >= 1.0:
         return mesh_bbox
     return authored_bbox
             

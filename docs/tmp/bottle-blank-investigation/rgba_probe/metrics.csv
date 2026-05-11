@@ -1,0 +1,9 @@
+alpha_max,alpha_min,alpha_nonzero,bbox2d_count,category,composite_max_diff_from_bg,composite_non_bg_pixels,raw_max_diff_from_bg,raw_non_bg_pixels,uid,view
+0,0,0,0,bottle,0,0,202,252153,3fbea76496bf04349440a969710847fc,front
+0,0,0,0,bottle,0,0,204,262110,3fbea76496bf04349440a969710847fc,left
+0,0,0,0,bottle,0,0,194,262004,3fbea76496bf04349440a969710847fc,back
+0,0,0,0,bottle,0,0,204,262144,3fbea76496bf04349440a969710847fc,right
+0,0,0,0,bottle,0,0,202,252153,4f2775f5bcb1559d0794f09ef6cb8f8a,front
+0,0,0,0,bottle,0,0,204,262110,4f2775f5bcb1559d0794f09ef6cb8f8a,left
+0,0,0,0,bottle,0,0,194,262004,4f2775f5bcb1559d0794f09ef6cb8f8a,back
+0,0,0,0,bottle,0,0,204,262144,4f2775f5bcb1559d0794f09ef6cb8f8a,right

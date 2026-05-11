@@ -51,6 +51,17 @@ def test_inflated_authored_bbox_above_threshold_uses_mesh_point_bbox():
     np.testing.assert_allclose(bbox, [[0, 0, 0], [1, 1, 1]])
 
 
+def test_shifted_authored_bbox_center_uses_mesh_point_bbox():
+    stage, prim = _root_with_mesh(
+        points=[(0, 0, 0), (2, 0, 0), (0, 2, 2)],
+        extent=[(100, 100, 100), (102, 102, 102)],
+    )
+
+    bbox = compute_bbox(prim)
+
+    np.testing.assert_allclose(bbox, [[0, 0, 0], [2, 2, 2]])
+
+
 def test_exact_default_threshold_triggers_mesh_point_fallback():
     stage, prim = _root_with_mesh(
         points=[(0, 0, 0), (1, 0, 0), (0, 1, 1)],

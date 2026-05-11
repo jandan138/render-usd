@@ -88,6 +88,21 @@ Diagnosis is complete enough to avoid further guessing:
 
 No code changes were made because the requested scope was diagnosis only.
 
+## Follow-Up Status
+
+The later bbox-fallback implementation and rerender validation confirmed this diagnosis for the blank/tiny object subset:
+
+- The bbox fallback fix was merged in commit `52cf15a`.
+- Full candidate scanning found `544` blank/tiny assets recommended for safe rerender.
+- DLC rerender completed `544/544` assets and `2,176/2,176` PNGs under `docs/tmp/bbox-rerender-selected-validation/test0_render_views_bbox_selected/`.
+- Quality analysis recovered `460` assets to all-four-view `ok` and left `84` residual low-quality cabinet/door assets.
+- On 2026-05-09, the `460` recovered `ok` assets were copied back into the source `GRScenes_assets` tree after backing up the original source PNGs.
+- Post-overwrite verification classified `1,840/1,840` overwritten source views as `ok` and confirmed their SHA hashes match the rerender outputs.
+- Follow-up center-offset and residual rerender work expanded the same safe overwrite workflow to additional bbox failure modes. Across all recovery waves, `2,832` historical object-like non-ok assets were verified as recovered and copied back to source, replacing `11,328` PNGs with backup and SHA verification.
+- Final targeted source verification over the original `3,364` object-like non-ok rows now reports `2,832 ok` and `532` remaining non-ok (`508 suspicious`, `22 blank`, `2 tiny`), with no regressions from the pre-residual `ok` set.
+
+For the original blank basket example `basket/6ae01f7e1ba19fc58a6f9d0b1102c3d1`, the source `front/left/back/right.png` files have been replaced with the recovered bbox-fallback renders.
+
 ## Follow-Up Options
 
 If implementation is requested later, likely options are:

@@ -81,9 +81,17 @@ Do not change the production renderer for this residual set right now.
 
 Recommended handling:
 
-- Keep the 460 recovered `ok` rerender outputs as the safe bbox-fallback recovery set.
+- Keep the 460 recovered `ok` assets as the safe bbox-fallback recovery set. On 2026-05-09, these 460 assets were copied back into the source `GRScenes_assets` tree after backing up the original source PNGs.
 - Mark the remaining 84 as low-quality residuals.
 - If downstream later accepts non-semantic thumbnails, add a separate opt-in best-view salvage mode. Do not overwrite `front/left/back/right` with diagonal or best-view outputs by default.
+
+Source overwrite status:
+
+- Overwritten source assets: `460` recovered `ok` assets.
+- Overwritten source PNGs: `1,840`.
+- Backup root: `../bbox-rerender-selected-validation/overwrite_460_ok_2026-05-09/source_png_backup/`.
+- Post-overwrite verification: all `460` overwritten assets have four source views classified `ok`.
+- Residual low-quality assets copied back: `0`; the 84 residuals remain excluded.
 
 Consumption lists:
 
@@ -102,13 +110,27 @@ The 84 residuals should be consumed as three buckets:
 
 Two independent review agents agreed with the no-renderer-change decision. Both recommended marking the 84 residual cabinet/door assets as low-quality, with best-view salvage only as a future opt-in mode if semantic four-view consistency is no longer required.
 
+## Follow-Up Status
+
+This report is now historical for the original 84-asset residual set. A later current-source verification pass, after the center-offset bbox fallback was added, rescanned the remaining object-like non-ok source assets and rerendered `639` current residual bbox candidates.
+
+Outcome for the original 84 assets:
+
+- Recovered in the current residual bbox pass: `83`
+- Still non-ok after the current residual bbox pass: `1`
+- Remaining asset: `cabinet/3399337a68a2bb41b4f4ebc20590fd94` with `blank;blank;blank;blank`
+
+The recovered `83` assets were copied back as part of `docs/tmp/final-source-verification-2026-05-09/overwrite_current_residual_ok_2026-05-10/`, which verified all copied source views as `ok` and source SHA hashes as matching rerender outputs.
+
 ## Files
 
 - `experiment_assets.csv`: representative 7-asset experiment set.
 - `non_ok_assets.csv`: all 84 residual assets.
 - `residual_84_classification.csv`: final residual bucket classification.
-- `../bbox-rerender-selected-validation/recovered_ok_assets.csv`: 460-asset safe recovery list.
+- `../bbox-rerender-selected-validation/recovered_ok_assets.csv`: 460-asset safe recovery list; these assets have been copied back to the source tree.
 - `../bbox-rerender-selected-validation/residual_low_quality_assets.csv`: 84-asset residual list.
+- `../bbox-rerender-selected-validation/overwrite_460_ok_2026-05-09/`: source overwrite manifest, post-overwrite verification, and backup of the original source PNGs for the 460 copied-back assets.
+- `../final-source-verification-2026-05-09/overwrite_current_residual_ok_2026-05-10/`: follow-up source overwrite manifest, post-overwrite verification, and backup for the later current residual bbox recovery pass.
 - `analysis/`: representative experiment quality outputs.
 - `analysis84/`: full 84-asset baseline and 45-degree quality outputs.
 - `renders/`: representative experiment PNG outputs.

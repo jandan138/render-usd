@@ -72,3 +72,4 @@ Scope: historical object-like non-ok assets from the 2026-05-08 full quality scr
 - Post-residual targeted source quality CSV: `docs/tmp/final-source-verification-2026-05-09/object_non_ok_historical_current_quality_after_residual.csv`
 - Post-residual non-ok CSV: `docs/tmp/final-source-verification-2026-05-09/current_object_non_ok_quality_after_residual.csv`
 - Generated post-residual summary: `docs/tmp/final-source-verification-2026-05-09/summary_after_residual.md`
+- Residual triage and next-action decision: `docs/tmp/final-source-verification-2026-05-09/residual_532_triage.md`

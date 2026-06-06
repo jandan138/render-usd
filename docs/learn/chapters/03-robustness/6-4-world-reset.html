@@ -1,0 +1,47 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>world.reset() 与渲染步数的玄学 — Render-USD Learning Guide</title>
+<link rel="stylesheet" href="../../assets/css/book.css"/></head>
+<body data-root="../../" data-section-id="6-4">
+<header class="topbar"><button class="menu-btn">☰</button><a class="brand" href="../../index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a><span class="spacer"></span>
+<nav class="topnav"><a href="../../index.html">目录</a></nav><button class="theme-toggle" aria-label="切换明暗主题"></button></header>
+<div class="progress-track"><div class="progress-bar"></div></div>
+<div class="layout"><aside class="sidebar"><a class="toc-home" href="../../index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+<main class="main"><article class="reading">
+<div class="eyebrow">Part III · 生产级健壮性 / 6-4</div>
+<h1>world.reset() 与渲染步数的玄学</h1>
+<p class="lead">为什么每个资产加载前要 world.reset()？为什么预热 100 帧再渲染 8 帧？这些数字不是拍脑袋，而是工程妥协的结果。</p>
+
+<h2 id="s1">world.reset() 的作用</h2>
+<p><code>world.reset()</code> 在 Isaac Sim 中做了以下事情：</p>
+<ul>
+<li>清除所有物理体的速度和加速度</li>
+<li>重置 USD imaging delegate 的内部状态</li>
+<li>销毁上一帧的临时渲染缓存</li>
+<li><strong>不会</strong>删除 Stage 上的 Prim（除非显式调用 <code>delete_prim</code>）</li>
+</ul>
+<p>render-usd 在每个资产渲染前调用 <code>world.reset()</code>，是为了防止「USD imaging delegate errors accumulate over time」。当连续加载多个资产时，渲染器的内部状态（如纹理缓存、BVH 更新队列）可能累积不一致，reset 相当于做一次「软重启」。</p>
+
+<h2 id="s2">100 帧预热 + 8 帧渲染</h2>
+<table class="comp-table">
+<tr><th>阶段</th><th>帧数</th><th>render=</th><th>目的</th></tr>
+<tr><td>预热</td><td>100</td><td>False</td><td>让 USD 数据完全上传到 GPU，imaging delegate 稳定，相机位姿插值完成</td></tr>
+<tr><td>渲染</td><td>8</td><td>True</td><td>PathTracing 累积 8 个 sample，噪声降到可接受范围</td></tr>
+</table>
+
+<div class="bridge"><span class="ttl">From GAMES101</span><br/>
+你的课堂 Path Tracer 是「一帧出图」：每个像素一次性发射 64 或 1024 条光线，然后写文件。Isaac Sim 的 PathTracing 是<strong>渐进式（progressive）</strong>的：每帧只发少量光线（比如 1 SPP），把结果累加到累加缓冲（accumulation buffer）里。8 帧 × 1 SPP ≈ 8 SPP，对 thumbnail 来说足够干净。</div>
+
+<h2 id="s3">为什么是 100 和 8</h2>
+<p>这两个数字来自经验调参：</p>
+<ul>
+<li><strong>100 帧预热</strong>：对于复杂资产（高面数、多材质、大纹理），USD Hydra delegate 需要多帧才能完成所有数据的 GPU 上传和着色器编译。100 帧是一个保守但安全的值。</li>
+<li><strong>8 帧渲染</strong>：在 512×512 分辨率、HDRI 照明、无镜面焦散的场景下，8 SPP 的噪声水平远低于人眼敏感阈值。增加帧数会线性增加渲染时间，但收益递减。</li>
+</ul>
+<div class="callout callout-warn">
+<strong>可调参数</strong>：如果你发现某些资产出现「残影」或「半加载」状态，可以尝试增加预热帧数。如果噪声明显，可以增加渲染帧数（但会成倍增加耗时）。
+</div>
+
+<nav class="prevnext"></nav>
+</article></main><aside class="rail"><h4>On this page</h4><ul></ul></aside></div>
+<script src="../../content.js"></script><script src="../../assets/js/book.js"></script>
+</body></html>

@@ -1,0 +1,85 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Azimuth / Elevation / Distance 交互演示 — Render-USD Learning Guide</title>
+<link rel="stylesheet" href="../../assets/css/book.css"/></head>
+<body data-root="../../" data-section-id="4-2">
+<header class="topbar"><button class="menu-btn">☰</button><a class="brand" href="../../index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a><span class="spacer"></span>
+<nav class="topnav"><a href="../../index.html">目录</a></nav><button class="theme-toggle" aria-label="切换明暗主题"></button></header>
+<div class="progress-track"><div class="progress-bar"></div></div>
+<div class="layout"><aside class="sidebar"><a class="toc-home" href="../../index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+<main class="main"><article class="reading">
+<div class="eyebrow">Part II · 渲染管线核心 / 4-2</div>
+<h1>Azimuth / Elevation / Distance 交互演示</h1>
+<p class="lead">拖动滑块，实时观察球坐标参数如何影响相机位置。这是 render-usd 中 set_camera_look_at() 的数学本质。</p>
+
+<div class="lab">
+<div class="lab-head"><div class="lab-tag">互动 · Interactive</div><div class="lab-title">Spherical Camera Explorer</div></div>
+<div class="lab-body">
+<canvas id="sphericalCanvas" class="widget-canvas"></canvas>
+<div style="margin-top:12px; display:flex; gap:16px; flex-wrap:wrap;">
+  <label>Azimuth: <input type="range" id="azimuth" min="0" max="360" value="0"/> <span id="azVal">0°</span></label>
+  <label>Elevation: <input type="range" id="elevation" min="0" max="90" value="35"/> <span id="elVal">35°</span></label>
+  <label>Distance: <input type="range" id="distance" min="10" max="200" value="100"/> <span id="distVal">1.0×</span></label>
+</div>
+</div>
+<div class="lab-note">
+蓝色小球 = 相机位置；红色立方体 = 目标物体；灰色圆弧 = 方位角轨迹。观察 azimuth=0/90/180/270 时相机分别位于物体的哪个方向。
+</div>
+</div>
+
+<h2 id="s1">数学原理</h2>
+<div class="math-block">$$
+\begin{aligned}
+x &= d \cdot \cos(e) \cdot \cos(a) \\
+y &= d \cdot \cos(e) \cdot \sin(a) \\
+z &= d \cdot \sin(e)
+\end{aligned}
+$$</div>
+<p>其中 <code>a = azimuth</code>, <code>e = elevation</code>, <code>d = distance</code>。注意 Isaac Sim 默认 Z 轴向上，所以这里的 z 对应高度。</p>
+
+<h2 id="s2">朝向 quaternion 的生成</h2>
+<p>相机位置算出来后，还需要让相机「看」向目标中心。render-usd 使用 <code>scipy.spatial.transform.Rotation.from_euler("xyz", [0, elevation, azimuth - 180], degrees=True)</code> 生成旋转矩阵，再转为 quaternion。</p>
+<p>为什么 <code>azimuth - 180</code>？因为相机需要「背对」球坐标方向才能看向中心。球坐标定义的是相机相对于目标的位置偏移，而相机的 look 方向与这个偏移向量相反。</p>
+
+<script>
+(function(){
+  var canvas = document.getElementById('sphericalCanvas');
+  var ctx = canvas.getContext('2d');
+  var W, H, cx, cy, scale;
+  function resize(){ W = canvas.width = canvas.clientWidth; H = canvas.height = canvas.clientHeight; cx = W/2; cy = H/2; scale = Math.min(W,H)/4; draw(); }
+  window.addEventListener('resize', resize);
+  function draw(){
+    var az = +document.getElementById('azimuth').value * Math.PI/180;
+    var el = +document.getElementById('elevation').value * Math.PI/180;
+    var dist = +document.getElementById('distance').value / 100;
+    document.getElementById('azVal').textContent = Math.round(az*180/Math.PI) + '°';
+    document.getElementById('elVal').textContent = Math.round(el*180/Math.PI) + '°';
+    document.getElementById('distVal').textContent = dist.toFixed(2) + '×';
+
+    ctx.fillStyle = '#0a0a12'; ctx.fillRect(0,0,W,H);
+    // Grid
+    ctx.strokeStyle = '#222'; ctx.lineWidth = 1;
+    for(var i=-3;i<=3;i++){ ctx.beginPath(); ctx.moveTo(cx+i*scale,0); ctx.lineTo(cx+i*scale,H); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,cy+i*scale); ctx.lineTo(W,cy+i*scale); ctx.stroke(); }
+    // Ground circle
+    ctx.strokeStyle = '#444'; ctx.beginPath(); ctx.arc(cx,cy,scale,0,Math.PI*2); ctx.stroke();
+    // Camera orbit trace
+    ctx.strokeStyle = '#335'; ctx.beginPath(); ctx.arc(cx,cy,scale*dist*Math.cos(el),0,Math.PI*2); ctx.stroke();
+    // Target cube (red)
+    ctx.fillStyle = '#e74c3c'; ctx.fillRect(cx-8, cy-8, 16, 16);
+    // Camera position (blue)
+    var camX = cx + scale*dist*Math.cos(el)*Math.cos(az);
+    var camY = cy + scale*dist*Math.cos(el)*Math.sin(az);
+    ctx.fillStyle = '#3498db'; ctx.beginPath(); ctx.arc(camX, camY, 6, 0, Math.PI*2); ctx.fill();
+    // Line
+    ctx.strokeStyle = '#3498db'; ctx.setLineDash([4,4]); ctx.beginPath(); ctx.moveTo(camX,camY); ctx.lineTo(cx,cy); ctx.stroke(); ctx.setLineDash([]);
+    // Label
+    ctx.fillStyle = '#8a8a99'; ctx.font = '12px sans-serif'; ctx.fillText('target', cx+12, cy-12); ctx.fillText('camera', camX+8, camY-8);
+  }
+  ['azimuth','elevation','distance'].forEach(function(id){ document.getElementById(id).addEventListener('input', draw); });
+  resize();
+})();
+</script>
+
+<nav class="prevnext"></nav>
+</article></main><aside class="rail"><h4>On this page</h4><ul></ul></aside></div>
+<script src="../../content.js"></script><script src="../../assets/js/book.js"></script>
+</body></html>

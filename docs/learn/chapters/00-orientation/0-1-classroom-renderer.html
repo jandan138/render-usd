@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>你的 GAMES101 渲染器到哪为止 — Render-USD Learning Guide</title>
+  <meta name="description" content="在 GAMES101 里，你写过一个能画三角形、算光照、做 shadow mapping 的 software renderer。它很棒，但距离「给五万个 USD 资产批量出 thumbnail」还有多远？" />
+  <link rel="stylesheet" href="../..//assets/css/book.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+</head>
+<body data-root="../../" data-section-id="0-1">
+  <header class="topbar">
+    <button class="menu-btn" aria-label="目录">☰</button>
+    <a class="brand" href="../..//index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a>
+    <span class="spacer"></span>
+    <nav class="topnav"><a href="../..//index.html">目录</a></nav>
+    <button class="theme-toggle" aria-label="切换明暗主题" title="明暗主题"></button>
+  </header>
+  <div class="progress-track"><div class="progress-bar"></div></div>
+
+  <div class="layout">
+    <aside class="sidebar"><a class="toc-home" href="../..//index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+
+    <main class="main">
+      <article class="reading">
+        <div class="eyebrow">Part 0 · 导论 / 0-1</div>
+        <h1>你的 GAMES101 渲染器到哪为止</h1>
+        <p class="lead">在 GAMES101 里，你写过一个能画三角形、算光照、做 shadow mapping 的 software renderer。它很棒，但距离「给五万个 USD 资产批量出 thumbnail」还有多远？</p>
+
+
+<h2 id="s1">GAMES101 教会了你什么</h2>
+<p>如果你完整地跟过 <strong>GAMES101</strong>（或任何一门基于 <span class="term">MITSuba</span> / <span class="term">TinyRenderer</span> 的图形学入门课），你的 mental model 里已经有了这些核心概念：</p>
+<ul>
+  <li><strong>MVP 变换</strong>：Model → View → Projection，把三维顶点塞进 <span class="term">NDC</span>（Normalized Device Coordinates）那个 <code>[-1, 1]³</code> 的小盒子里。</li>
+  <li><strong>Rasterization</strong>：用 <span class="term">Barycentric coordinates</span> 判断像素是否在三角形内，做 <span class="term">Z-buffering</span> 解决遮挡。</li>
+  <li><strong>Shading</strong>：从 <span class="term">Blinn-Phong</span> 到简单的 <span class="term">Path Tracing</span>，你理解了 <span class="term">BRDF</span>、<span class="term">Monte Carlo integration</span> 和 <span class="term">Russian Roulette</span>。</li>
+  <li><strong>数据结构</strong>：你用一个 <code>struct Mesh { vector&lt;Vector3f&gt; vertices; vector&lt;int&gt; indices; }</code> 就描述了整个世界。</li>
+</ul>
+
+<div class="bridge"><span class="ttl">From GAMES101</span><br/>
+以上这些「第一性原理」在任何生产管线里都依然成立。不同的是，生产环境里没人从零开始写 <code>rasterize_triangle()</code>——你站在一堆成熟基础设施的肩膀上。</div>
+
+<h2 id="s2">课堂渲染器做不到的六件事</h2>
+<p>让我们直接列一张表，看看你的 classroom renderer 和 <strong>render-usd</strong> 这类生产管线之间隔着哪些鸿沟：</p>
+
+<table class="comp-table">
+<tr><th>维度</th><th>Classroom Renderer</th><th>Production Pipeline (render-usd)</th></tr>
+<tr><td><strong>场景描述</strong></td><td>自定义 <code>.obj</code> / 硬编码 mesh</td><td><span class="term">USD</span> (Universal Scene Description)：层级、引用、变体、材质全内聚</td></tr>
+<tr><td><strong>材质系统</strong></td><td>手写 <code>vec3 shading()</code>，参数写死在代码里</td><td><span class="term">MDL</span> / <span class="term">UsdPreviewSurface</span>：声明式、可复用、渲染器无关</td></tr>
+<tr><td><strong>光照</strong></td><td>手动放几个点光源、方向光</td><td><span class="term">HDRI</span> DomeLight：真实世界采样的 360° 环境贴图</td></tr>
+<tr><td><strong>执行硬件</strong></td><td>CPU 单线程，或许用个 <span class="term">OpenMP</span></td><td><span class="term">RTX GPU</span>：RT Core 做 <span class="term">BVH traversal</span>，Tensor Core 做 denoising</td></tr>
+<tr><td><strong>相机模型</strong></td><td>手动拼 <span class="term">LookAt matrix</span> + <span class="term">Perspective projection</span></td><td>Isaac Sim <span class="term">Camera sensor</span>：带 annotator 的物理传感器，输出 RGBA / Depth / BBox</td></tr>
+<tr><td><strong>批量与容错</strong></td><td>一次渲染一张图，崩溃就全崩</td><td><span class="term">Chunking</span> + 异常隔离 + <span class="term">gc.collect()</span>：五万个资产不中断</td></tr>
+</table>
+
+<h2 id="s3">为什么 thumbnail 是个正经问题</h2>
+<p>你可能会问：不就是把模型摆好、拍四张照片吗？这值得写一个项目？</p>
+<p>在 <span class="term">Embodied AI</span> 和 <span class="term">VLM (Vision-Language Model)</span> 的研究里，<strong>asset thumbnail</strong> 是下游任务的「视觉锚点」。如果批量渲染出的图光照不均、相机距离错误、背景把白色物体吞掉，VLM 的 <span class="term">grounding</span> 精度会悄然下降——而你很难 debug 到是渲染管线的问题。</p>
+
+<div class="callout callout-warn">
+<strong>核心洞察</strong>：production rendering 的难点不在「算一张图」，而在「<em>可靠地、可复现地、可扩展地</em>算十万张图，且每张图的光照、相机、背景都一致」。</div>
+
+
+        <nav class="prevnext" aria-label="上一节 / 下一节"></nav>
+      </article>
+    </main>
+
+    <aside class="rail"><h4>On this page</h4><ul></ul></aside>
+  </div>
+
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script src="../..//content.js"></script>
+  <script src="../..//assets/js/book.js"></script>
+  <script defer>
+    window.addEventListener("load", function () {
+      if (typeof window.renderMathInElement === "function") {
+        window.renderMathInElement(document.body, { delimiters: [{left:"1073869",right:"1073869",display:true},{left:"\(",right:"\)",display:false},{left:"$",right:"$",display:false}], throwOnError: false });
+      }
+    });
+  </script>
+</body>
+</html>

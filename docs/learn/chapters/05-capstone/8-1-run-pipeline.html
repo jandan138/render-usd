@@ -1,0 +1,67 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>跑通一次完整渲染 — Render-USD Learning Guide</title>
+<link rel="stylesheet" href="../../assets/css/book.css"/></head>
+<body data-root="../../" data-section-id="8-1">
+<header class="topbar"><button class="menu-btn">☰</button><a class="brand" href="../../index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a><span class="spacer"></span>
+<nav class="topnav"><a href="../../index.html">目录</a></nav><button class="theme-toggle" aria-label="切换明暗主题"></button></header>
+<div class="progress-track"><div class="progress-bar"></div></div>
+<div class="layout"><aside class="sidebar"><a class="toc-home" href="../../index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+<main class="main"><article class="reading">
+<div class="eyebrow">Part V · 综合 / 8-1</div>
+<h1>跑通一次完整渲染</h1>
+<p class="lead">理论到此为止。让我们用一条命令，把前面学过的所有概念串起来，跑出第一张 thumbnail。</p>
+
+<h2 id="s1">环境准备</h2>
+<div class="code"><div class="code-head"><span class="fname">bash</span><button class="copy">copy</button></div>
+<pre><code data-lang="bash"># 1. 激活 conda 环境
+source miniconda/bin/activate render-usd
+
+# 2. 设置 PYTHONPATH
+export PYTHONPATH=$PYTHONPATH:$(pwd)/src
+
+# 3. 验证 Isaac Sim 可用
+python -c "from isaacsim import SimulationApp; print('OK')"
+</code></pre></div>
+
+<h2 id="s2">单文件渲染</h2>
+<div class="code"><div class="code-head"><span class="fname">bash</span><button class="copy">copy</button></div>
+<pre><code data-lang="bash">python -m render_usd.cli single \
+    --usd_path /path/to/your/asset.usd \
+    --output_dir ./output \
+    --naming_style view
+</code></pre></div>
+<p>预期输出：</p>
+<div class="code"><div class="code-head"><span class="fname">output/</span><button class="copy">copy</button></div>
+<pre><code>output/
+├── front.png
+├── left.png
+├── back.png
+└── right.png
+</code></pre></div>
+
+<h2 id="s3">自定义目录批量渲染</h2>
+<div class="code"><div class="code-head"><span class="fname">bash</span><button class="copy">copy</button></div>
+<pre><code data-lang="bash">python -m render_usd.cli render_custom \
+    --assets_dir /path/to/GRScenes_assets \
+    --naming_style view \
+    --chunk_id 0 \
+    --chunk_total 10
+</code></pre></div>
+
+<h2 id="s4">观察日志</h2>
+<p>正常运行的日志应该包含这些关键词：</p>
+<ul>
+<li><code>[Scene] HDRI environment loaded: ...</code> → 光照设置成功</li>
+<li><code>[1/529] Rendering: ...</code> → 批量进度</li>
+<li><code>[Memory] Garbage collected after ...</code> → 内存清理</li>
+<li><code>[CLI] Isaac Sim closed successfully</code> → 干净退出</li>
+</ul>
+
+<div class="callout callout-err">
+<strong>如果看到红色</strong>：检查 MDL 路径是否正确注册。如果看到全黑：检查 HDRI 是否加载成功。如果看到 exit code 139：检查 cleanup() 是否被调用。
+</div>
+
+<nav class="prevnext"></nav>
+</article></main><aside class="rail"><h4>On this page</h4><ul></ul></aside></div>
+<script src="../../content.js"></script><script src="../../assets/js/book.js"></script>
+</body></html>

@@ -1,0 +1,52 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>CLI Cheat-sheet — Render-USD Learning Guide</title>
+<link rel="stylesheet" href="../../assets/css/book.css"/></head>
+<body data-root="../../" data-section-id="app-cli">
+<header class="topbar"><button class="menu-btn">☰</button><a class="brand" href="../../index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a><span class="spacer"></span>
+<nav class="topnav"><a href="../../index.html">目录</a></nav><button class="theme-toggle" aria-label="切换明暗主题"></button></header>
+<div class="progress-track"><div class="progress-bar"></div></div>
+<div class="layout"><aside class="sidebar"><a class="toc-home" href="../../index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+<main class="main"><article class="reading">
+<div class="eyebrow">附录 / app-cli</div>
+<h1>CLI Cheat-sheet</h1>
+<p class="lead">常用命令速查。</p>
+
+<h2 id="s1">单文件渲染</h2>
+<div class="code"><div class="code-head"><span class="fname">bash</span><button class="copy">copy</button></div>
+<pre><code data-lang="bash">python -m render_usd.cli single \
+  --usd_path /path/to/asset.usd \
+  --output_dir ./output \
+  --naming_style view \
+  --overwrite
+</code></pre></div>
+
+<h2 id="s2">自定义目录批量渲染</h2>
+<div class="code"><div class="code-head"><span class="fname">bash</span><button class="copy">copy</button></div>
+<pre><code data-lang="bash">python -m render_usd.cli render_custom \
+  --assets_dir /path/to/assets \
+  --naming_style view \
+  --chunk_id 0 \
+  --chunk_total 10 \
+  --overwrite
+</code></pre></div>
+
+<h2 id="s3">GRScenes-100 分布式渲染</h2>
+<div class="code"><div class="code-head"><span class="fname">bash</span><button class="copy">copy</button></div>
+<pre><code data-lang="bash">python -m render_usd.cli grscenes100 \
+  --chunk_id 0 \
+  --chunk_total 100 \
+  --naming_style view \
+  --overwrite
+</code></pre></div>
+
+<h2 id="s4">环境变量</h2>
+<div class="code"><div class="code-head"><span class="fname">bash</span><button class="copy">copy</button></div>
+<pre><code data-lang="bash">export PYTHONPATH=$PYTHONPATH:$(pwd)/src
+export MDL_SYSTEM_PATH=/path/to/mdl:/another/mdl
+source miniconda/bin/activate render-usd
+</code></pre></div>
+
+<nav class="prevnext"></nav>
+</article></main><aside class="rail"><h4>On this page</h4><ul></ul></aside></div>
+<script src="../../content.js"></script><script src="../../assets/js/book.js"></script>
+</body></html>

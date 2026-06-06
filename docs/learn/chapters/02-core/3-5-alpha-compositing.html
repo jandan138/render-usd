@@ -1,0 +1,62 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Alpha 合成：白色物体生存指南 — Render-USD Learning Guide</title>
+<link rel="stylesheet" href="../../assets/css/book.css"/></head>
+<body data-root="../../" data-section-id="3-5">
+<header class="topbar"><button class="menu-btn">☰</button><a class="brand" href="../../index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a><span class="spacer"></span>
+<nav class="topnav"><a href="../../index.html">目录</a></nav><button class="theme-toggle" aria-label="切换明暗主题"></button></header>
+<div class="progress-track"><div class="progress-bar"></div></div>
+<div class="layout"><aside class="sidebar"><a class="toc-home" href="../../index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+<main class="main"><article class="reading">
+<div class="eyebrow">Part II · 渲染管线核心 / 3-5</div>
+<h1>Alpha 合成：白色物体生存指南</h1>
+<p class="lead">这是 render-usd 中最具「产品思维」的设计之一：用 HDRI 照明，但把背景抠掉，换成可控的纯色背景。解决了白色物体在白色 DomeLight 下消失的千古难题。</p>
+
+<h2 id="s1">问题：白色物体 + 白色背景 = 消失</h2>
+<p>物理学原理很简单：<strong>物体的颜色 = 它反射的光的颜色</strong>。一个白色杯子之所以看起来白，是因为它几乎把所有照射到它身上的光都反射回来了。</p>
+<p>如果背景也是白色，灯光也是白色，杯子反射了白光，背景也是白光——两者完全融为一体。就像在白纸上用白色笔画画。</p>
+
+<h2 id="s2">方案：绿幕原理</h2>
+<p>电影工业用了几十年的 <span class="term">chroma key</span>（绿幕/蓝幕）技术，核心是分两步：</p>
+<ol>
+<li><strong>真实打光</strong>：绿幕本身不会出现在最终画面，但灯光真实地照亮了演员</li>
+<li><strong>后期抠像</strong>：把绿色区域标记为透明，替换成太空、城市等背景</li>
+</ol>
+<p>render-usd 的做法<strong>完全一样</strong>，只是「绿色」变成了「alpha=0」：</p>
+<ol>
+<li>用 HDRI DomeLight 提供真实环境光照（物体被自然照亮）</li>
+<li>用 <code>backgroundZeroAlpha</code> 把背景区域的 alpha 设为 0</li>
+<li>在 Python 里用 alpha compositing 公式把透明背景换成深灰色</li>
+</ol>
+
+<h2 id="s3">RTX backgroundZeroAlpha 四件套</h2>
+<div class="code"><div class="code-head"><span class="fname">scene.py</span><button class="copy">copy</button></div>
+<pre><code data-lang="python">settings = carb.settings.get_settings()
+settings.set("/rtx/post/backgroundZeroAlpha/enabled", True)           # 开启背景透明
+settings.set("/rtx/post/backgroundZeroAlpha/backgroundComposite", False)  # 不自动合成背景
+settings.set("/rtx/post/backgroundZeroAlpha/outputAlphaInComposite", True) # 输出保留 alpha
+settings.set("/app/captureFrame/setAlphaTo1", False)                  # 不要强制 alpha=1
+</code></pre></div>
+<p>这四个设置缺一不可，共同确保：</p>
+<ul>
+<li>物体像素：alpha = 255（完全不透明）</li>
+<li>背景像素：alpha = 0（完全透明）</li>
+<li>边缘像素：alpha 介于 0-255（抗锯齿过渡）</li>
+</ul>
+
+<h2 id="s4">Alpha 合成代码</h2>
+<div class="code"><div class="code-head"><span class="fname">renderer.py (核心合成)</span><button class="copy">copy</button></div>
+<pre><code data-lang="python">rgba = get_src(camera, "rgba")                          # H x W x 4
+alpha = rgba[:, :, 3:4].astype(np.float32) / 255.0     # 归一化到 [0, 1]
+bg = np.full_like(rgba[:, :, :3], 40, dtype=np.float32) # 深灰色 RGB(40,40,40)
+rgb = (rgba[:, :, :3].astype(np.float32) * alpha + bg * (1.0 - alpha)).astype(np.uint8)
+</code></pre></div>
+<div class="math-block">$$ \text{output} = \text{foreground} \times \alpha + \text{background} \times (1 - \alpha) $$</div>
+
+<div class="callout callout-ok">
+<strong>效果</strong>：alpha=1 的像素保留物体本身；alpha=0 的像素显示深灰色；半透明边缘自然过渡，避免锯齿。
+</div>
+
+<nav class="prevnext"></nav>
+</article></main><aside class="rail"><h4>On this page</h4><ul></ul></aside></div>
+<script src="../../content.js"></script><script src="../../assets/js/book.js"></script>
+</body></html>

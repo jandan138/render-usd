@@ -1,0 +1,56 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Authored extent vs mesh points：两条路线的较量 — Render-USD Learning Guide</title>
+<link rel="stylesheet" href="../../assets/css/book.css"/></head>
+<body data-root="../../" data-section-id="5-1">
+<header class="topbar"><button class="menu-btn">☰</button><a class="brand" href="../../index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a><span class="spacer"></span>
+<nav class="topnav"><a href="../../index.html">目录</a></nav><button class="theme-toggle" aria-label="切换明暗主题"></button></header>
+<div class="progress-track"><div class="progress-bar"></div></div>
+<div class="layout"><aside class="sidebar"><a class="toc-home" href="../../index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+<main class="main"><article class="reading">
+<div class="eyebrow">Part III · 生产级健壮性 / 5-1</div>
+<h1>Authored extent vs mesh points：两条路线的较量</h1>
+<p class="lead">Bounding Box 是相机定位的唯一依据。但「物体的边界」有两种定义方式：USD 作者声明的 extent，和实际几何顶点的包围盒。它们可能不一致，而 render-usd 必须处理这种不一致。</p>
+
+<h2 id="s1">Authored Extent：USD 的「官方声明」</h2>
+<p>USD 的 <code>UsdGeom.Boundable</code> 类型有一个 <code>extent</code> 属性，是资产创作者预先计算的包围盒。通过 <code>ComputeWorldBound(time).ComputeAlignedBox()</code> 可以获取世界坐标系下的版本。</p>
+<div class="code"><div class="code-head"><span class="fname">prim_utils.py</span><button class="copy">copy</button></div>
+<pre><code data-lang="python">def _compute_authored_world_bbox(prim: Usd.Prim) -> np.ndarray:
+    imageable: UsdGeom.Imageable = UsdGeom.Imageable(prim)
+    bound = imageable.ComputeWorldBound(Usd.TimeCode.Default(), UsdGeom.Tokens.default_)
+    bound_range = bound.ComputeAlignedBox()
+    return np.array([bound_range.min, bound_range.max])
+</code></pre></div>
+<p><strong>优点</strong>：快，不需要遍历顶点。</p>
+<p><strong>缺点</strong>：可能包含不可见子层级、辅助几何、或者作者手误填错。</p>
+
+<h2 id="s2">Mesh Points：几何的「铁证」</h2>
+<p>另一种方式是遍历所有 <code>UsdGeom.Mesh</code> Prim，读取 <code>points</code> 属性，用 <code>ComputeLocalToWorldTransform</code> 变换到世界空间，再取 min/max。</p>
+<div class="code"><div class="code-head"><span class="fname">prim_utils.py</span><button class="copy">copy</button></div>
+<pre><code data-lang="python">def _compute_single_mesh_point_bbox(prim: Usd.Prim):
+    points = prim.GetAttribute("points").Get()
+    points = np.array(to_list(points), dtype=float)
+    xform = np.array(imageable.ComputeLocalToWorldTransform(time), dtype=float)
+    points_h = np.hstack([points, np.ones((points.shape[0], 1))])
+    points_world = np.dot(points_h, xform)[:, :3]
+    return np.array([np.min(points_world, axis=0), np.max(points_world, axis=0)])
+</code></pre></div>
+<p><strong>优点</strong>：只包含实际可见的几何，不受 authored extent 错误影响。</p>
+<p><strong>缺点</strong>：慢，需要递归遍历所有子 Prim；如果 points 里有 NaN，需要额外清理。</p>
+
+<h2 id="s3">remder-usd 的双策略</h2>
+<p><code>compute_bbox()</code> 函数实现了智能 fallback：</p>
+<ol>
+<li>先算 <code>authored_bbox</code></li>
+<li>再算 <code>mesh_bbox</code>（递归遍历所有可见 mesh）</li>
+<li>如果 <code>authored_diagonal / mesh_diagonal >= extent_fallback_ratio</code>（默认 5.0），说明 authored extent 异常大，回退到 mesh_bbox</li>
+<li>如果 authored bbox 的中心与 mesh bbox 中心偏移超过 mesh 对角线（<code>center_offset_ratio >= 1.0</code>），也说明 extent 不可信，回退到 mesh_bbox</li>
+</ol>
+
+<div class="callout callout-ok">
+<strong>工程智慧</strong>：永远不要信任单一数据源。生产管线中，authored metadata 和 computed geometry 应该互相校验，不一致时取更保守（更小/更准）的那个。
+</div>
+
+<nav class="prevnext"></nav>
+</article></main><aside class="rail"><h4>On this page</h4><ul></ul></aside></div>
+<script src="../../content.js"></script><script src="../../assets/js/book.js"></script>
+</body></html>

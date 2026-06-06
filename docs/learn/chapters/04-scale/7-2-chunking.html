@@ -1,0 +1,46 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Chunking：DLC 分布式渲染策略 — Render-USD Learning Guide</title>
+<link rel="stylesheet" href="../../assets/css/book.css"/></head>
+<body data-root="../../" data-section-id="7-2">
+<header class="topbar"><button class="menu-btn">☰</button><a class="brand" href="../../index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a><span class="spacer"></span>
+<nav class="topnav"><a href="../../index.html">目录</a></nav><button class="theme-toggle" aria-label="切换明暗主题"></button></header>
+<div class="progress-track"><div class="progress-bar"></div></div>
+<div class="layout"><aside class="sidebar"><a class="toc-home" href="../../index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+<main class="main"><article class="reading">
+<div class="eyebrow">Part IV · 规模化渲染 / 7-2</div>
+<h1>Chunking：DLC 分布式渲染策略</h1>
+<p class="lead">五万个资产不能在一个进程里串行渲染。render-usd 通过 chunking 把任务切分成独立子任务，提交到 DLC（Deep Learning Container）集群并行执行。</p>
+
+<h2 id="s1">Chunking 算法</h2>
+<div class="code"><div class="code-head"><span class="fname">cli.py (grscenes100)</span><button class="copy">copy</button></div>
+<pre><code data-lang="python">total_assets = len(all_asset_usds)
+chunk_size = (total_assets + args.chunk_total - 1) // args.chunk_total
+start_idx = args.chunk_id * chunk_size
+end_idx = min(start_idx + chunk_size, total_assets)
+object_usd_paths = all_asset_usds[start_idx:end_idx]
+</code></pre></div>
+<p><code>(chunk_id, chunk_total)</code> 是一对整数，把资产列表切成 <code>chunk_total</code> 个连续块。例如 52,907 个资产分成 100 个 chunk，每个 chunk 约 529 个资产。</p>
+
+<h2 id="s2">为什么用连续切分而不是哈希</h2>
+<p>连续切分（contiguous chunking）的好处：</p>
+<ul>
+<li><strong>磁盘局部性</strong>：同一 chunk 的资产通常在相近目录，共享的纹理/材质缓存命中率更高</li>
+<li><strong>结果可预测</strong>：chunk 0 总是处理前 N 个资产，方便调试和重跑</li>
+<li><strong>失败隔离</strong>：单个 chunk 失败只需重跑该 chunk，不影响其他 chunk 的结果</li>
+</ul>
+
+<h2 id="s3">DLC 提交脚本</h2>
+<p><code>scripts/dlc/</code> 目录包含完整的提交工具链：</p>
+<ul>
+<li><code>submit_batch.py</code>：读取资产列表，生成 N 个 DLC job 配置</li>
+<li><code>launch_job.sh</code>：包装单条渲染命令，处理参数转发</li>
+<li><code>run_task.sh</code>：在 DLC 容器内执行，设置 PYTHONPATH 和 conda 环境</li>
+</ul>
+<div class="callout callout-ok">
+<strong>实际运行规模</strong>：2026-03-04 的 DLC Crash Fix 文档记录了一次真实提交：100 个 chunks，总计 52,907 个 USD 文件。修复后所有 chunks 均成功完成，exit code 0。
+</div>
+
+<nav class="prevnext"></nav>
+</article></main><aside class="rail"><h4>On this page</h4><ul></ul></aside></div>
+<script src="../../content.js"></script><script src="../../assets/js/book.js"></script>
+</body></html>

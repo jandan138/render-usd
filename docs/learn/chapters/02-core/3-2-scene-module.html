@@ -1,0 +1,53 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Scene 模块：World、Stage、HDRI — Render-USD Learning Guide</title>
+<link rel="stylesheet" href="../../assets/css/book.css"/></head>
+<body data-root="../../" data-section-id="3-2">
+<header class="topbar"><button class="menu-btn">☰</button><a class="brand" href="../../index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a><span class="spacer"></span>
+<nav class="topnav"><a href="../../index.html">目录</a></nav><button class="theme-toggle" aria-label="切换明暗主题"></button></header>
+<div class="progress-track"><div class="progress-bar"></div></div>
+<div class="layout"><aside class="sidebar"><a class="toc-home" href="../../index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+<main class="main"><article class="reading">
+<div class="eyebrow">Part II · 渲染管线核心 / 3-2</div>
+<h1>Scene 模块：World、Stage、HDRI</h1>
+<p class="lead">scene.py 是 render-usd 的舞台管理者。它负责初始化 Isaac Sim World、加载 USD 资产、设置 HDRI 环境光照，以及管理语义标签。</p>
+
+<h2 id="s1">init_world()：World 的诞生</h2>
+<div class="code"><div class="code-head"><span class="fname">scene.py</span><button class="copy">copy</button></div>
+<pre><code data-lang="python">from omni.isaac.core import World
+
+def init_world(stage_units_in_meters=1.0, physics_dt=0.01, rendering_dt=0.01):
+    world = World(
+        stage_units_in_meters=stage_units_in_meters,
+        physics_dt=physics_dt,
+        rendering_dt=rendering_dt,
+    )
+    world.reset()
+    return world
+</code></pre></div>
+<p><code>World</code> 是 Isaac Sim 的核心运行时对象。它同时管理物理步长和渲染步长。虽然 render-usd 不做物理仿真，但仍需要调用 <code>world.step(render=True)</code> 来推进渲染管线。</p>
+
+<h2 id="s2">setup_environment()：三级 Fallback</h2>
+<p>这是 scene.py 中最关键的函数，决定了你的 thumbnail 是否有「摄影棚级」光照：</p>
+<div class="code"><div class="code-head"><span class="fname">scene.py (简化)</span><button class="copy">copy</button></div>
+<pre><code data-lang="python">def setup_environment(env_path=None):
+    if env_path is None:
+        env_path = str(DEFAULT_ENVIRONMENT_PATH)
+    if os.path.exists(env_path):
+        add_reference_to_stage(env_path, "/World/environment")
+    else:
+        # Fallback: HDRI DomeLight
+        hdri_path = find_isaacsim_builtin_hdri()
+        stage = omni.usd.get_context().get_stage()
+        dome_light = UsdLux.DomeLight.Define(stage, "/World/default_dome_light")
+        dome_light.CreateTextureFileAttr(hdri_path)
+        dome_light.CreateIntensityAttr(1500)
+        # backgroundZeroAlpha settings via carb...
+</code></pre></div>
+
+<h2 id="s3">语义标签：BBox 的前提</h2>
+<p><code>add_update_semantics(prim, semantic_label="instance", type_label="class")</code> 给 Prim 打上语义标签。这不是为了人类阅读，而是为了让 <span class="term">BoundingBox2D/3D annotator</span> 能识别出「这个像素/这个框属于哪个物体」。没有语义标签，BBox annotator 就找不到目标。</p>
+
+<nav class="prevnext"></nav>
+</article></main><aside class="rail"><h4>On this page</h4><ul></ul></aside></div>
+<script src="../../content.js"></script><script src="../../assets/js/book.js"></script>
+</body></html>

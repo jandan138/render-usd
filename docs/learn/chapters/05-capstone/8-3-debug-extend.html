@@ -1,0 +1,48 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>如何调试、扩展与贡献 — Render-USD Learning Guide</title>
+<link rel="stylesheet" href="../../assets/css/book.css"/></head>
+<body data-root="../../" data-section-id="8-3">
+<header class="topbar"><button class="menu-btn">☰</button><a class="brand" href="../../index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a><span class="spacer"></span>
+<nav class="topnav"><a href="../../index.html">目录</a></nav><button class="theme-toggle" aria-label="切换明暗主题"></button></header>
+<div class="progress-track"><div class="progress-bar"></div></div>
+<div class="layout"><aside class="sidebar"><a class="toc-home" href="../../index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+<main class="main"><article class="reading">
+<div class="eyebrow">Part V · 综合 / 8-3</div>
+<h1>如何调试、扩展与贡献</h1>
+<p class="lead">你已经理解了 render-usd 的全貌。这一节提供实用的调试技巧和扩展思路。</p>
+
+<h2 id="s1">调试 checklist</h2>
+<ul>
+<li><strong>全红</strong>：MDL 路径问题 → 检查 <code>MDL_SYSTEM_PATH</code> 和 <code>--mdl_paths</code></li>
+<li><strong>全黑</strong>：光照问题 → 检查 HDRI 是否加载、Intensity 是否为零</li>
+<li><strong>全白</strong>：backgroundZeroAlpha 未开启 或 Intensity 过高</li>
+<li><strong>特写/远景</strong>：BBox 异常 → 加日志打印 <code>bbox_min, bbox_max, distance</code></li>
+<li><strong>segfault</strong>：GPU 资源泄漏 → 检查 cleanup() 和 shutdown 顺序</li>
+<li><strong>BBox 不显示</strong>：语义标签未设置 → 检查 <code>add_update_semantics()</code></li>
+</ul>
+
+<h2 id="s2">扩展思路</h2>
+<ul>
+<li><strong>增加视角</strong>：修改 <code>sample_number</code> 和 <code>azimuth</codeu003e 计算逻辑，支持俯视图、仰视图</li>
+<li><strong>自定义背景色</strong>：修改 <code>renderer.py</code> 中 <code>bg = np.full_like(..., 40, ...)</code> 的 40 为任意值</li>
+<li><strong>输出 Depth</strong>：在 <code>setup_camera</code> 中启用 <code>with_distance=True</code>，用 <code>get_src(camera, "depth")</code> 提取</li>
+<li><strong>语义分割图</strong>：启用 <code>with_semantic=True</code>，输出每像素的类别 ID</li>
+<li><strong>自适应 SPP</strong>：根据场景复杂度动态调整 <code>world.step(render=True)</code> 的帧数</li>
+</ul>
+
+<h2 id="s3">贡献规范</h2>
+<p>项目使用 <span class="term">Agent-based development</span> 工作流。任何修改都应附带：</p>
+<ul>
+<li>设计文档（docs/design/ 目录）</li>
+<li>异常处理（单个资产失败不中断批量任务）</li>
+<li>清理逻辑（新增的 GPU 资源必须在 cleanup() 中释放）</li>
+</ul>
+
+<div class="callout callout-ok">
+<strong>恭喜完成</strong>：你已经从 GAMES101 的 classroom renderer，走到了生产级 USD rendering pipeline 的核心。render-usd 的每一行代码现在都应该有了上下文和意义。
+</div>
+
+<nav class="prevnext"></nav>
+</article></main><aside class="rail"><h4>On this page</h4><ul></ul></aside></div>
+<script src="../../content.js"></script><script src="../../assets/js/book.js"></script>
+</body></html>

@@ -1,0 +1,49 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Center-offset 陷阱与 fallback 策略 — Render-USD Learning Guide</title>
+<link rel="stylesheet" href="../../assets/css/book.css"/></head>
+<body data-root="../../" data-section-id="5-2">
+<header class="topbar"><button class="menu-btn">☰</button><a class="brand" href="../../index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a><span class="spacer"></span>
+<nav class="topnav"><a href="../../index.html">目录</a></nav><button class="theme-toggle" aria-label="切换明暗主题"></button></header>
+<div class="progress-track"><div class="progress-bar"></div></div>
+<div class="layout"><aside class="sidebar"><a class="toc-home" href="../../index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+<main class="main"><article class="reading">
+<div class="eyebrow">Part III · 生产级健壮性 / 5-2</div>
+<h1>Center-offset 陷阱与 fallback 策略</h1>
+<p class="lead">有些 USD 资产的 authored extent 包含了远离几何中心的辅助节点（如 locator、light、camera rig），导致包围盒中心与实际 mesh 中心相差甚远。相机看向错误中心，物体就会偏出画面。</p>
+
+<h2 id="s1">真实案例</h2>
+<p>假设一个台灯资产：</p>
+<ul>
+<li>Mesh 实际占据：<code>[-10, -10, 0]</code> 到 <code>[10, 10, 30]</code>（单位：cm）</li>
+<li>但 authored extent 包含了一个位于 <code>(0, 0, 500)</code> 的辅助 locator</li>
+<li>结果：authored bbox 中心在 <code>(0, 0, 265)</code>，mesh 中心在 <code>(0, 0, 15)</code>，相差 250cm</li>
+</ul>
+<p>如果相机看向 <code>(0, 0, 265)</code>，实际台灯只在画面底部露出一小部分，大部分画面是空白。</p>
+
+<h2 id="s2">Center-offset Ratio 检测</h2>
+<div class="code"><div class="code-head"><span class="fname">prim_utils.py</span><button class="copy">copy</button></div>
+<pre><code data-lang="python">def _bbox_center_offset_ratio(authored_bbox, mesh_bbox) -> float:
+    authored_center = (authored_bbox[0] + authored_bbox[1]) / 2.0
+    mesh_center = (mesh_bbox[0] + mesh_bbox[1]) / 2.0
+    mesh_diagonal = np.linalg.norm(mesh_bbox[1] - mesh_bbox[0])
+    if mesh_diagonal <= 0:
+        return 0.0
+    return float(np.linalg.norm(authored_center - mesh_center) / mesh_diagonal)
+</code></pre></div>
+<p>当这个 ratio >= <code>1.0</code> 时，意味着 authored center 偏离了至少一个 mesh 对角线的距离。这对 thumbnail 来说是致命的——物体会严重偏出画面。</p>
+
+<h2 id="s3">Fallback 决策树</h2>
+<div style="background:var(--panel); border-radius:10px; padding:18px; margin:18px 0; font-size:14px;">
+<p><strong>start</strong> → 计算 authored_bbox</p>
+<p>　　→ 计算 mesh_bbox（递归遍历）</p>
+<p>　　　　→ mesh_bbox 无效？→ <strong>返回 authored_bbox</strong></p>
+<p>　　　　→ authored_bbox 含 NaN/Inf？→ <strong>返回 mesh_bbox</strong></p>
+<p>　　　　→ authored_diagonal / mesh_diagonal >= 5.0？→ <strong>返回 mesh_bbox</strong></p>
+<p>　　　　→ center_offset_ratio >= 1.0？→ <strong>返回 mesh_bbox</strong></p>
+<p>　　　　→ 否则 → <strong>返回 authored_bbox</strong></p>
+</div>
+
+<nav class="prevnext"></nav>
+</article></main><aside class="rail"><h4>On this page</h4><ul></ul></aside></div>
+<script src="../../content.js"></script><script src="../../assets/js/book.js"></script>
+</body></html>

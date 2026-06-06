@@ -1,0 +1,62 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Mental Model：一张图理解全管线 — Render-USD Learning Guide</title>
+<link rel="stylesheet" href="../../assets/css/book.css"/></head>
+<body data-root="../../" data-section-id="8-2">
+<header class="topbar"><button class="menu-btn">☰</button><a class="brand" href="../../index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a><span class="spacer"></span>
+<nav class="topnav"><a href="../../index.html">目录</a></nav><button class="theme-toggle" aria-label="切换明暗主题"></button></header>
+<div class="progress-track"><div class="progress-bar"></div></div>
+<div class="layout"><aside class="sidebar"><a class="toc-home" href="../../index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+<main class="main"><article class="reading">
+<div class="eyebrow">Part V · 综合 / 8-2</div>
+<h1>Mental Model：一张图理解全管线</h1>
+<p class="lead">读到这里，你应该已经掌握了 render-usd 的每一个模块。让我们用一张图把它们串联起来，形成持久的 mental model。</p>
+
+<h2 id="s1">全管线架构图</h2>
+<div style="background:var(--panel); border-radius:12px; padding:24px; margin:20px 0; font-size:14px; line-height:2;">
+<div style="text-align:center; font-weight:700; font-size:16px; margin-bottom:16px;">render-usd Pipeline Architecture</div>
+<div style="display:grid; grid-template-columns: 1fr auto 1fr; gap:12px; align-items:center;">
+<div style="text-align:right;">
+<div class="flow-box data">USD File (.usd)</div>
+<div class="flow-box data">MDL Materials</div>
+<div class="flow-box data">HDRI (.hdr)</div>
+</div>
+<div style="font-size:20px; color:var(--ink-muted); text-align:center;">→</div>
+<div>
+<div class="flow-box core">Scene: init_world() + setup_environment()</div>
+<div class="flow-box core">Camera: init_camera() + setup_camera()</div>
+</div>
+</div>
+<div style="text-align:center; font-size:20px; color:var(--ink-muted); margin:8px 0;">↓</div>
+<div style="display:flex; justify-content:center; gap:12px; flex-wrap:wrap;">
+<div class="flow-box core">Renderer: render_thumbnail_wo_bg()</div>
+</div>
+<div style="text-align:center; font-size:20px; color:var(--ink-muted); margin:8px 0;">↓</div>
+<div style="display:grid; grid-template-columns: 1fr auto 1fr; gap:12px; align-items:center;">
+<div style="text-align:right;">
+<div class="flow-box data">RGBA frame (H×W×4)</div>
+</div>
+<div style="font-size:20px; color:var(--ink-muted); text-align:center;">→</div>
+<div>
+<div class="flow-box core">Alpha Composite (bg=RGB40)</div>
+</div>
+</div>
+<div style="text-align:center; font-size:20px; color:var(--ink-muted); margin:8px 0;">↓</div>
+<div style="display:flex; justify-content:center; gap:12px;">
+<div class="flow-box data">PNG Thumbnail (front/left/back/right)</div>
+</div>
+</div>
+
+<h2 id="s2">关键决策点速查</h2>
+<table class="comp-table">
+<tr><th>问题</th><th>决策</th><th>代码位置</th></tr>
+<tr><td>相机距离</td><td>bbox 对角线 × 1.0，下限 0.1</td><td><code>renderer.py:233-236</code></td></tr>
+<tr><td>BBox 不可信</td><td>authored vs mesh fallback，ratio >= 5 或 center offset >= 1.0 时回退</td><td><code>prim_utils.py:236-265</code></td></tr>
+<tr><td>背景色</td><td>HDRI 照明 + backgroundZeroAlpha + alpha composite 到 RGB(40,40,40)</td><td><code>scene.py:61-71</code>, <code>renderer.py:269-273</code></td></tr>
+<tr><td>异常隔离</td><td>每个资产 try-except，失败跳过不中断</td><td><code>renderer.py:189-313</code></td></tr>
+<tr><td>内存管理</td><td>cleanup() + gc.collect() 每 50 资产 + shutdown 顺序</td><td><code>renderer.py:44-78</code>, <code>cli.py:346-361</code></td></tr>
+</table>
+
+<nav class="prevnext"></nav>
+</article></main><aside class="rail"><h4>On this page</h4><ul></ul></aside></div>
+<script src="../../content.js"></script><script src="../../assets/js/book.js"></script>
+</body></html>

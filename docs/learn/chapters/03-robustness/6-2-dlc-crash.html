@@ -1,0 +1,64 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Segmentation Fault 全复盘：DLC Crash Fix — Render-USD Learning Guide</title>
+<link rel="stylesheet" href="../../assets/css/book.css"/></head>
+<body data-root="../../" data-section-id="6-2">
+<header class="topbar"><button class="menu-btn">☰</button><a class="brand" href="../../index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a><span class="spacer"></span>
+<nav class="topnav"><a href="../../index.html">目录</a></nav><button class="theme-toggle" aria-label="切换明暗主题"></button></header>
+<div class="progress-track"><div class="progress-bar"></div></div>
+<div class="layout"><aside class="sidebar"><a class="toc-home" href="../../index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+<main class="main"><article class="reading">
+<div class="eyebrow">Part III · 生产级健壮性 / 6-2</div>
+<h1>Segmentation Fault 全复盘：DLC Crash Fix</h1>
+<p class="lead">2026-03-04，DLC 分布式渲染任务频繁崩溃（exit code 139）。所有资产都渲染成功了，却在 shutdown 时 segfault。这是一次经典的 GPU 资源泄漏导致的崩溃。</p>
+
+<h2 id="s1">时间线</h2>
+<div style="background:var(--panel); border-radius:10px; padding:18px; margin:18px 0; font-size:14px;">
+<p><strong>10:42:08</strong>　Job Created</p>
+<p><strong>10:46:34</strong>　Job Started</p>
+<p><strong>10:50:12</strong>　First Render（第一个钢琴资产开始渲染）</p>
+<p><strong>10:50:37</strong>　Last Render（全部 10 个钢琴渲染完成，耗时 25 秒）</p>
+<p><strong>10:53:15</strong>　<span style="color:#c0392b; font-weight:700;">Job Failed（exit code 139，SIGSEGV）</span></p>
+</div>
+<p><strong>关键发现</strong>：崩溃发生在渲染完成后 3 分钟，正在执行 <code>kit.close()</code>。所有输出文件都已正常生成。</p>
+
+<h2 id="s2">根因分析</h2>
+<p>Isaac Sim 的 shutdown 流程需要释放大量 GPU 资源：</p>
+<ul>
+<li>Camera <span class="term">render products</span>（GPU framebuffer）</li>
+<li>Camera <span class="term">custom annotators</span>（Replicator 节点）</li>
+<li>USD <span class="term">imaging delegate</span> 缓存（Hydra 的 GPU 数据结构）</li>
+<li>Python 对象的循环引用（导致 GC 无法回收）</li>
+</ul>
+<p>如果这些资源没有被显式清理，<code>kit.close()</code> 会在释放 USD stage 和 GPU context 时访问已失效的指针，触发 segfault。</p>
+
+<h2 id="s3">修复方案</h2>
+<p><strong>Fix 1：RenderManager.cleanup()</strong></p>
+<div class="code"><div class="code-head"><span class="fname">renderer.py</span><button class="copy">copy</button></div>
+<pre><code data-lang="python">def cleanup(self):
+    for camera in self.cameras:
+        if hasattr(camera, '_custom_annotators'):
+            camera._custom_annotators.clear()
+        if hasattr(camera, '_render_product'):
+            camera._render_product = None
+    self.cameras = []
+    if self.world:
+        self.world.reset()
+    gc.collect()
+</code></pre></div>
+
+<p><strong>Fix 2：Shutdown 顺序</strong></p>
+<div class="code"><div class="code-head"><span class="fname">cli.py</span><button class="copy">copy</button></div>
+<pre><code data-lang="python"># ✅ 正确顺序
+renderer.cleanup()   # 先释放 GPU 资源
+gc.collect()         # 再强制 Python GC
+kit.close()          # 最后关闭 Isaac Sim
+</code></pre></div>
+
+<div class="callout callout-ok">
+<strong>结果</strong>：修复后 DLC 任务 exit code 从 139 变为 0，峰值内存下降 30-50%，单 asset 失败不再导致整 job 崩溃。
+</div>
+
+<nav class="prevnext"></nav>
+</article></main><aside class="rail"><h4>On this page</h4><ul></ul></aside></div>
+<script src="../../content.js"></script><script src="../../assets/js/book.js"></script>
+</body></html>

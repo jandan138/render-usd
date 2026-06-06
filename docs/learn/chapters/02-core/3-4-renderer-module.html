@@ -1,0 +1,67 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Renderer 模块：Orchestration — Render-USD Learning Guide</title>
+<link rel="stylesheet" href="../../assets/css/book.css"/></head>
+<body data-root="../../" data-section-id="3-4">
+<header class="topbar"><button class="menu-btn">☰</button><a class="brand" href="../../index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a><span class="spacer"></span>
+<nav class="topnav"><a href="../../index.html">目录</a></nav><button class="theme-toggle" aria-label="切换明暗主题"></button></header>
+<div class="progress-track"><div class="progress-bar"></div></div>
+<div class="layout"><aside class="sidebar"><a class="toc-home" href="../../index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+<main class="main"><article class="reading">
+<div class="eyebrow">Part II · 渲染管线核心 / 3-4</div>
+<h1>Renderer 模块：Orchestration</h1>
+<p class="lead">renderer.py 是整个管线的指挥家。它不直接操作 GPU，而是通过调度 Scene 和 Camera 模块，完成「加载 → 摆相机 → 渲染 → 保存」的完整闭环。</p>
+
+<h2 id="s1">RenderManager 的职责</h2>
+<ul>
+<li><strong>生命周期管理</strong>：创建 World、跟踪 Camera 列表、shutdown 时调用 <code>cleanup()</code></li>
+<li><strong>批量循环</strong>：遍历资产列表，对每个资产执行「reset → load prim → set pose → render → extract → save → delete prim」</li>
+<li><strong>异常隔离</strong>：每个资产独立 try-except，单个失败不影响整个 job</li>
+<li><strong>内存管理</strong>：每 50 个资产强制 <code>gc.collect()</codeu003e</li>
+</ul>
+
+<h2 id="s2">渲染循环的伪代码</h2>
+<div class="code"><div class="code-head"><span class="fname">renderer.py 核心循环 (概念)</span><button class="copy">copy</button></div>
+<pre><code data-lang="python">for each asset_path in asset_list:
+    world.reset()                    # 清除上一帧状态
+    prim = create_prim("/World/Show", usd_path=asset_path)
+    if prim is invalid: continue
+
+    set_prim_cast_shadow_true(prim)
+    add_update_semantics(prim, "instance", "class")
+    bbox_min, bbox_max = compute_bbox(prim)
+    if bbox has NaN/Inf: continue
+
+    center = (bbox_min + bbox_max) / 2
+    distance = norm(bbox_max - bbox_min) * 1.0
+    distance = max(distance, 0.1)    # 防除零
+
+    for i in range(4):
+        azimuth = i * 90
+        set_camera_look_at(cameras[i], center, azimuth=azimuth, elevation=35, distance=distance)
+
+    for _ in range(100): world.step(render=False)   # 预热
+    for _ in range(8):  world.step(render=True)     # 渲染收敛
+
+    for i, camera in enumerate(cameras):
+        rgba = get_src(camera, "rgba")
+        rgb = alpha_composite(rgba, bg=(40,40,40))
+        save_png(rgb, f"{name}_{i}.png")
+
+    delete_prim("/World/Show")
+    if idx % 50 == 0: gc.collect()
+</code></pre></div>
+
+<h2 id="s3">预热与收敛</h2>
+<p>注意循环里的两个 <code>for</code>：</p>
+<ul>
+<li><strong>100 帧 render=False</strong>：预热（warm-up）。让 Isaac Sim 的渲染管线稳定，USD imaging delegate 完成所有数据的 GPU 上传。</li>
+<li><strong>8 帧 render=True</strong>：PathTracing 收敛。每帧都是一次采样累积，8 帧足以让 thumbnail 级别的噪声降到可接受范围。</li>
+</ul>
+<div class="callout callout-warn">
+<strong>为什么需要预热？</strong> Isaaac Sim 的渲染器是异步流水线。创建 Prim 后，USD 数据需要经过 <span class="term">Hydra</span> 场景委托翻译到 GPU 的 BVH 和纹理内存。如果不预热直接抓取，可能拿到半初始化的画面。
+</div>
+
+<nav class="prevnext"></nav>
+</article></main><aside class="rail"><h4>On this page</h4><ul></ul></aside></div>
+<script src="../../content.js"></script><script src="../../assets/js/book.js"></script>
+</body></html>

@@ -1,0 +1,68 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Camera Distance Bug：一条 np.clip 引发的血案 — Render-USD Learning Guide</title>
+<link rel="stylesheet" href="../../assets/css/book.css"/></head>
+<body data-root="../../" data-section-id="6-1">
+<header class="topbar"><button class="menu-btn">☰</button><a class="brand" href="../../index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a><span class="spacer"></span>
+<nav class="topnav"><a href="../../index.html">目录</a></nav><button class="theme-toggle" aria-label="切换明暗主题"></button></header>
+<div class="progress-track"><div class="progress-bar"></div></div>
+<div class="layout"><aside class="sidebar"><a class="toc-home" href="../../index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+<main class="main"><article class="reading">
+<div class="eyebrow">Part III · 生产级健壮性 / 6-1</div>
+<h1>Camera Distance Bug：一条 np.clip 引发的血案</h1>
+<p class="lead">2026-03-08，批量渲染结果突然出现极端特写。调查发现，罪魁祸首是一条出于好意的 np.clip(distance, 0.1, 100.0)。这是一个经典的「防御性编程反噬」案例。</p>
+
+<h2 id="s1">现象</h2>
+<ul>
+<li>旧渲染（2026-01-19）：物体占画面 ~60-65%，构图正常</li>
+<li>新渲染（2026-03-05）：物体塞满整个画面，甚至超出边界</li>
+<li>影响范围：所有大尺寸家具（床、沙发、衣柜）</li>
+</ul>
+
+<h2 id="s2">排查过程</h2>
+<p>最初的怀疑对象是同时期引入的两项改动：</p>
+<ul>
+<li>Commit A：在渲染循环中加入 <code>world.reset()</code></li>
+<li>Commit B：引入 HDRI + backgroundZeroAlpha + alpha compositing</li>
+</ul>
+<p>通过环境变量开关做 A/B 测试：</p>
+<table class="comp-table">
+<tr><th>测试</th><th>跳过 world.reset</th><th>跳过 alpha 合成</th><th>结果</th></tr>
+<tr><td>Test A</td><td>否</td><td>否</td><td>❌ 特写</td></tr>
+<tr><td>Test B</td><td>是</td><td>否</td><td>❌ 仍然特写</td></tr>
+<tr><td>Test C</td><td>否</td><td>是</td><td>❌ 仍然特写</td></tr>
+</table>
+<p>结论：两个 suspected change 都不是根因。</p>
+
+<h2 id="s3">真相：np.clip 的 upper bound</h2>
+<p>加入 debug logging 后，发现问题资产的 distance 被 clamp 了：</p>
+<div class="code"><div class="code-head"><span class="fname">debug log</span><button class="copy">copy</button></div>
+<pre><code># bed asset: 0a85b986de35ccfdec7c686d791fd747
+bbox_min = [-97.83, -111.92, -45.00]
+bbox_max = [97.83, 111.92, 45.00]
+diagonal = 310.63           # 正确距离
+distance = 100.0            # 被 np.clip 截断！只剩 ~32%
+</code></pre></div>
+
+<p><code>np.clip(distance, 0.1, 100.0)</code> 的 upper bound <code>100.0</code> 假设了「米级坐标」。但 GRScenes 资产使用<strong>厘米级坐标</strong>，一张床的对角线轻松达到 300-500cm。upper bound 把相机距离截断到原本的 1/3，自然变成极端特写。</p>
+
+<h2 id="s4">修复与教训</h2>
+<div class="code"><div class="code-head"><span class="fname">fix</span><button class="copy">copy</button></div>
+<pre><code data-lang="python"># Before (bug)
+distance = np.clip(distance, 0.1, 100.0)
+
+# After (fix)
+distance = max(distance, 0.1)   # 只防除零，不限制上限
+</code></pre></div>
+
+<div class="callout callout-err">
+<strong>关键教训</strong>：<ol>
+<li>「防御性编程」如果基于错误假设，会比不防御更危险。<code>np.clip</code> 的 upper bound 静默截断了合法值，没有任何报错。</li>
+<li>添加任何数值限制前，必须了解数据的实际分布和单位。</li>
+<li>Debug logging 是定位 silent truncation 的唯一手段。</li>
+</ol>
+</div>
+
+<nav class="prevnext"></nav>
+</article></main><aside class="rail"><h4>On this page</h4><ul></ul></aside></div>
+<script src="../../content.js"></script><script src="../../assets/js/book.js"></script>
+</body></html>

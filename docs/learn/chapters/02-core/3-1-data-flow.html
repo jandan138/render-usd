@@ -1,0 +1,39 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>六步数据流总览 — Render-USD Learning Guide</title>
+<link rel="stylesheet" href="../../assets/css/book.css"/></head>
+<body data-root="../../" data-section-id="3-1">
+<header class="topbar"><button class="menu-btn">☰</button><a class="brand" href="../../index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a><span class="spacer"></span>
+<nav class="topnav"><a href="../../index.html">目录</a></nav><button class="theme-toggle" aria-label="切换明暗主题"></button></header>
+<div class="progress-track"><div class="progress-bar"></div></div>
+<div class="layout"><aside class="sidebar"><a class="toc-home" href="../../index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+<main class="main"><article class="reading">
+<div class="eyebrow">Part II · 渲染管线核心 / 3-1</div>
+<h1>六步数据流总览</h1>
+<p class="lead">从 CLI 参数到 PNG 文件，render-usd 内部经历了六个严格定义的阶段。理解这个流程，是定位任何 bug 的前提。</p>
+
+<h2 id="s1">六步数据流</h2>
+<div style="background:var(--panel); border-radius:10px; padding:20px; margin:20px 0;">
+<p><strong>Step 1 · Input</strong><br/>用户通过 CLI 提供 USD 文件路径或目录。CLI 解析参数，收集 MDL 搜索路径。</p>
+<p><strong>Step 2 · Init World</strong><br/><code>RenderManager</code> 调用 <code>init_world()</code> 创建 Isaac Sim <code>World</code> 对象。</p>
+<p><strong>Step 3 · Setup Scene</strong><br/><code>Scene</code> 加载 USD stage，设置 HDRI DomeLight，初始化环境。</p>
+<p><strong>Step 4 · Setup Camera</strong><br/><code>Camera</codeu003e 创建传感器，挂载 annotator（RGBA, BBox2D 等），初始化分辨率。</p>
+<p><strong>Step 5 · Rendering Loop</strong><br/><code>RenderManager</code> 遍历每个资产和每个视角，调用 <code>world.step(render=True)</code>，提取 sensor 数据。</p>
+<p><strong>Step 6 · Output</strong><br/>Alpha 合成后保存 PNG，记录元数据，可选绘制 BBox 边框。</p>
+</div>
+
+<h2 id="s2">模块职责边界</h2>
+<p>这张图展示了三个核心模块在六步流中的参与度：</p>
+<table class="comp-table">
+<tr><th>阶段</th><th>Scene</th><th>Camera</th><th>Renderer</th></tr>
+<tr><td>Input</td><td>—</td><td>—</td><td>参数解析、路径收集</td></tr>
+<tr><td>Init World</td><td>创建 World</td><td>—</td><td>持有 World 引用</td></tr>
+<tr><td>Setup Scene</td><td>加载 Stage、设置灯光</td><td>—</td><td>触发 setup</td></tr>
+<tr><td>Setup Camera</td><td>—</td><td>创建 Prim、挂载 Annotator</td><td>配置参数</td></tr>
+<tr><td>Rendering Loop</td><td>加载/卸载资产 Prim</td><td>更新 Pose、提取数据</td><td>编排循环、异常处理</td></tr>
+<tr><td>Output</td><td>—</td><td>—</td><td>Alpha 合成、保存 PNG</td></tr>
+</table>
+
+<nav class="prevnext"></nav>
+</article></main><aside class="rail"><h4>On this page</h4><ul></ul></aside></div>
+<script src="../../content.js"></script><script src="../../assets/js/book.js"></script>
+</body></html>

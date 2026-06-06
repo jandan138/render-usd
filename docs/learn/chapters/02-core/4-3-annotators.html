@@ -1,0 +1,43 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Sensor Annotators：RGBA、Depth、BBox2D — Render-USD Learning Guide</title>
+<link rel="stylesheet" href="../../assets/css/book.css"/></head>
+<body data-root="../../" data-section-id="4-3">
+<header class="topbar"><button class="menu-btn">☰</button><a class="brand" href="../../index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a><span class="spacer"></span>
+<nav class="topnav"><a href="../../index.html">目录</a></nav><button class="theme-toggle" aria-label="切换明暗主题"></button></header>
+<div class="progress-track"><div class="progress-bar"></div></div>
+<div class="layout"><aside class="sidebar"><a class="toc-home" href="../../index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+<main class="main"><article class="reading">
+<div class="eyebrow">Part II · 渲染管线核心 / 4-3</div>
+<h1>Sensor Annotators：RGBA、Depth、BBox2D</h1>
+<p class="lead">Isaac Sim 的 Camera 不仅是「拍照」，它是一个多通道传感器。render-usd 中使用了 RGBA、BBox2D tight/loose，未来可扩展 Depth 和 Semantic Segmentation。</p>
+
+<h2 id="s1">什么是 Annotator</h2>
+<p>在 <span class="term">Omniverse Replicator</span> 框架中，<span class="term">Annotator</span> 是一种渲染后处理节点。它在每帧渲染完成后，从 GPU framebuffer 中提取特定类型的数据，并维护一个内部缓存队列。</p>
+<p>你可以把 Annotator 理解为「渲染管线的输出端口」：主渲染器生成图像后，不同的 Annotator 各自抓取自己关心的通道。</p>
+
+<h2 id="s2">remder-usd 使用的 Annotator</h2>
+<table class="comp-table">
+<tr><th>Annotator</th><th>注册方法</th><th>输出形状</th><th>用途</th></tr>
+<tr><td>RGBA</td><td><code>camera.get_rgba()</code></td><td>(H, W, 4) uint8</td><td>带 alpha 的原始渲染图</td></tr>
+<tr><td>BBox2D Tight</td><td><code>add_bounding_box_2d_tight_to_frame()</code></td><td>(N, 6) float32</td><td>紧贴物体轮廓的 2D 框</td></tr>
+<tr><td>BBox2D Loose</td><td><code>add_bounding_box_2d_loose_to_frame()</code></td><td>(N, 6) float32</td><td>包含透明/模糊边界的宽松框</td></tr>
+<tr><td>Depth</td><td><code>add_distance_to_image_plane_to_frame()</code></td><td>(H, W, 1) float32</td><td>到像平面的距离（可转点云）</td></tr>
+<tr><td>Semantic Seg</td><td><code>add_semantic_segmentation_to_frame()</code></td><td>(H, W, 1) int32</td><td>每个像素的语义类别 ID</td></tr>
+</table>
+
+<h2 id="s3">BBox2D 数据结构</h2>
+<p>每个 BBox2D 记录包含 6 个字段：</p>
+<div class="code"><div class="code-head"><span class="fname">python</span><button class="copy">copy</button></div>
+<pre><code data-lang="python">(id, x_min, y_min, x_max, y_max, occlusion_ratio)
+# 例如：(0, 120.5, 80.3, 400.2, 430.1, 0.0)
+</code></pre></div>
+<p>render-usd 中利用 tight 和 loose 的面积比来过滤无效检测：如果 <code>area(tight) / area(loose) &lt; 0.8</code>，说明 BBox 不可靠（可能是遮挡或渲染伪影），跳过保存。</p>
+
+<div class="callout callout-warn">
+<strong>注意</strong>：BBox2D annotator 依赖语义标签。如果 <code>add_update_semantics()</code> 没有被正确调用，annotator 返回空数组。
+</div>
+
+<nav class="prevnext"></nav>
+</article></main><aside class="rail"><h4>On this page</h4><ul></ul></aside></div>
+<script src="../../content.js"></script><script src="../../assets/js/book.js"></script>
+</body></html>

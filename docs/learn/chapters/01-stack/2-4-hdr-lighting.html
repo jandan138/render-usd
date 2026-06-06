@@ -1,0 +1,46 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>HDR / DomeLight / Environment lighting — Render-USD Learning Guide</title>
+<link rel="stylesheet" href="../../assets/css/book.css"/></head>
+<body data-root="../../" data-section-id="2-4">
+<header class="topbar"><button class="menu-btn">☰</button><a class="brand" href="../../index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a><span class="spacer"></span>
+<nav class="topnav"><a href="../../index.html">目录</a></nav><button class="theme-toggle" aria-label="切换明暗主题"></button></header>
+<div class="progress-track"><div class="progress-bar"></div></div>
+<div class="layout"><aside class="sidebar"><a class="toc-home" href="../../index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+<main class="main"><article class="reading">
+<div class="eyebrow">Part I · 技术栈全景 / 2-4</div>
+<h1>HDR / DomeLight / Environment lighting</h1>
+<p class="lead">课堂渲染器里你手动放了几个点光源。生产环境里，我们用 360° 全景照片来照亮整个场景——这就是 HDRI DomeLight。</p>
+
+<h2 id="s1">DomeLight 是什么</h2>
+<p><span class="term">DomeLight</span>（穹顶灯）可以理解为一个包裹整个场景的巨大发光球体。生活中最接近的例子是<strong>阴天的天空</strong>——云层把太阳光打散，从四面八方均匀照下来。</p>
+<p>在 USD 中，DomeLight 是 <code>UsdLux.DomeLight</code> 类型的 Prim。关键属性：</p>
+<ul>
+<li><code>Intensity</code>：光照强度（默认 1000-1500）</li>
+<li><code>Color</code>：光源颜色（同时影响背景色！）</li>
+<li><code>TextureFile</code>：HDRI 全景图路径</li>
+<li><code>TextureFormat</code>：映射方式（latlong / mirroredBall / angular）</li>
+</ul>
+
+<h2 id="s2">HDRI 解决什么问题</h2>
+<p>纯色 DomeLight（比如白色）有两个致命问题：</p>
+<ol>
+<li><strong>白色物体不可见</strong>：白杯子在白光白背景下完全融为一体</li>
+<li><strong>光照单调</strong>：没有高光方向，金属和玻璃像塑料</li>
+</ol>
+<p><span class="term">HDRI</span>（High Dynamic Range Image）是一张 360° 全景照片，记录了真实环境里每个方向的光照。把它贴在 DomeLight 内壁上，物体就像被放进了真实摄影棚——有明确的高光、柔和的阴影、丰富的环境反射。</p>
+
+<h2 id="s3">remder-usd 的光照方案</h2>
+<p>render-usd 的 <code>scene.py</code> 中，<code>setup_environment()</code> 函数实现了三级 fallback：</p>
+<ol>
+<li>优先加载用户指定的 <code>environment.usd</code></li>
+<li>若不存在，查找 Isaac Sim 内置的 <code>photo_studio_01_4k.hdr</code> 并创建 HDRI DomeLight</li>
+<li>若 HDRI 也找不到，回退到灰色纯色 DomeLight（intensity=1000, color=0.18）</li>
+</ol>
+
+<div class="callout callout-ok">
+<strong>使用的 HDRI</strong>：<code>photo_studio_01_4k.hdr</code> 是 Isaac Sim 内置的摄影棚风格 HDRI，特点是无明显方向性、中性色温、柔和均匀——非常适合产品级 thumbnail 渲染。</div>
+
+<nav class="prevnext"></nav>
+</article></main><aside class="rail"><h4>On this page</h4><ul></ul></aside></div>
+<script src="../../content.js"></script><script src="../../assets/js/book.js"></script>
+</body></html>

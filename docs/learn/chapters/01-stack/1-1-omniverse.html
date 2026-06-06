@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NVIDIA Omniverse 平台架构 — Render-USD Learning Guide</title>
+  <meta name="description" content="Omniverse 不是某个软件，而是一个平台。理解它的层次结构，是理解 Isaac Sim 和 render-usd 的前提。" />
+  <link rel="stylesheet" href="../..//assets/css/book.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+</head>
+<body data-root="../../" data-section-id="1-1">
+  <header class="topbar">
+    <button class="menu-btn" aria-label="目录">☰</button>
+    <a class="brand" href="../..//index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a>
+    <span class="spacer"></span>
+    <nav class="topnav"><a href="../..//index.html">目录</a></nav>
+    <button class="theme-toggle" aria-label="切换明暗主题" title="明暗主题"></button>
+  </header>
+  <div class="progress-track"><div class="progress-bar"></div></div>
+
+  <div class="layout">
+    <aside class="sidebar"><a class="toc-home" href="../..//index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+
+    <main class="main">
+      <article class="reading">
+        <div class="eyebrow">Part I · 技术栈全景 / 1-1</div>
+        <h1>NVIDIA Omniverse 平台架构</h1>
+        <p class="lead">Omniverse 不是某个软件，而是一个平台。理解它的层次结构，是理解 Isaac Sim 和 render-usd 的前提。</p>
+
+
+<h2 id="s1">Omniverse 是什么</h2>
+<p><strong>NVIDIA Omniverse</strong> 是一个面向 <span class="term">3D simulation</span> 和 <span class="term">Digital Twin</span> 的计算平台。它不是单一软件，而是一套基础设施：</p>
+<ul>
+  <li><span class="term">USD (Universal Scene Description)</span> 作为数据 backbone</li>
+  <li><span class="term">Omniverse Kit</span> 作为应用运行时框架</li>
+  <li><span class="term">Carbonite (carb)</span> 作为插件与配置内核</li>
+  <li><span class="term">RTX renderer</span> 作为内置光线追踪渲染器</li>
+</ul>
+
+<h2 id="s2">技术栈层次图</h2>
+<p>从下往上看，Omniverse 的技术栈像一块千层蛋糕：</p>
+
+<div style="background:var(--panel); border-radius:10px; padding:18px; margin:18px 0; font-size:14px;">
+<div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;"><span style="display:inline-block; width:120px; text-align:right; font-weight:600;">你的 Python 代码</span><span>render-usd CLI / 自定义脚本</span></div>
+<div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;"><span style="display:inline-block; width:120px; text-align:right; font-weight:600;">Isaac Sim 扩展</span><span>isaacsim.core.api, isaacsim.sensors.camera, omni.isaac.core</span></div>
+<div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;"><span style="display:inline-block; width:120px; text-align:right; font-weight:600;">物理引擎扩展</span><span>omni.physx, omni.physics.tensors</span></div>
+<div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;"><span style="display:inline-block; width:120px; text-align:right; font-weight:600;">Omniverse Kit 扩展</span><span>渲染器、USD、UI、Replicator、动画、材质（427+ 个扩展）</span></div>
+<div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;"><span style="display:inline-block; width:120px; text-align:right; font-weight:600;">Omniverse Kit</span><span>应用生命周期、扩展管理、USD Stage 管理</span></div>
+<div style="display:flex; align-items:center; gap:10px; padding:8px; background:var(--accent-soft); border-radius:6px; border:1px solid var(--accent);"><span style="display:inline-block; width:120px; text-align:right; font-weight:700; color:var(--accent);">Carbonite</span><span>插件系统、Settings、日志、事件、文件系统</span></div>
+<div style="display:flex; align-items:center; gap:10px; margin-top:8px;"><span style="display:inline-block; width:120px; text-align:right; font-weight:600;">操作系统 / GPU</span><span>Linux / CUDA / RTX driver</span></div>
+</div>
+
+<div class="bridge"><span class="ttl">From GAMES101</span><br/>
+课堂渲染器通常直接运行在操作系统之上，你的 <code>main.cpp</code> 就是顶层。Omniverse 则在 OS 和你的代码之间插入了五层抽象。这不是过度设计——每一层都解决了一个生产级问题：插件热加载、配置动态化、多渲染器共存、物理引擎解耦……</div>
+
+<h2 id="s3">USD 作为 backbone 的意义</h2>
+<p>传统 3D 流程中，模型从 Maya 导出 <code>.fbx</ccode>，材质在 Substance 里做，动画在 Blender 里调，最后进 Unity/Unreal 还要再导一次。每过一次转换，信息就丢一层。</p>
+<p><strong>USD</strong> 的定位是「<span class="term">interchange format</span> 的终极形态」：</p>
+<ul>
+  <li><strong>场景图（Scene Graph）</strong>：层级化的 Prim 树，不是扁平的 mesh 列表。</li>
+  <li><strong>组合（Composition）</strong>：通过 <span class="term">SubLayer</span>、<span class="term">Reference</span>、<span class="term">Payload</span> 把多个文件组合成一个场景，而不需要复制数据。</li>
+  <li><strong>延迟加载（Lazy loading）</strong>：Payload 允许场景在内存里先占个位，真正需要渲染时才从磁盘加载。</li>
+  <li><strong>变体（Variants）</strong>：同一辆车的「红色版」和「蓝色版」可以共享 99% 的数据，只替换材质参数。</li>
+</ul>
+
+<h2 id="s4">Kit 与扩展机制</h2>
+<p><span class="term">Omniverse Kit</span> 是整个平台的应用框架。Isaac Sim、USD Composer、Code 这些看起来完全不同的应用，底层都是同一个 <code>kit.exe</code>（或 <code>kit</code> 可执行文件），只是加载了不同的 <span class="term">扩展（extensions）</span> 组合。</p>
+<p>扩展是自描述的 <code>.toml</code> 包，包含 Python/C++ 代码、依赖声明、设置项。Kit 在启动时解析依赖图，按需加载扩展。这让 Omniverse 拥有极强的模块化能力——你可以只加载渲染相关的扩展，在 headless 服务器上跑纯批量渲染，而不需要启动完整的 GUI。</p>
+
+
+        <nav class="prevnext" aria-label="上一节 / 下一节"></nav>
+      </article>
+    </main>
+
+    <aside class="rail"><h4>On this page</h4><ul></ul></aside>
+  </div>
+
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script src="../..//content.js"></script>
+  <script src="../..//assets/js/book.js"></script>
+  <script defer>
+    window.addEventListener("load", function () {
+      if (typeof window.renderMathInElement === "function") {
+        window.renderMathInElement(document.body, { delimiters: [{left:"1080415",right:"1080415",display:true},{left:"\(",right:"\)",display:false},{left:"$",right:"$",display:false}], throwOnError: false });
+      }
+    });
+  </script>
+</body>
+</html>

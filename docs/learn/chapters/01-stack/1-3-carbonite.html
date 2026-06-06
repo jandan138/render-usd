@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Carbonite (carb)：被忽略的「操作系统内核」 — Render-USD Learning Guide</title>
+<link rel="stylesheet" href="../../assets/css/book.css"/></head>
+<body data-root="../../" data-section-id="1-3">
+<header class="topbar"><button class="menu-btn" aria-label="目录">☰</button>
+<a class="brand" href="../../index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a><span class="spacer"></span>
+<nav class="topnav"><a href="../../index.html">目录</a></nav><button class="theme-toggle" aria-label="切换明暗主题" title="明暗主题"></button></header>
+<div class="progress-track"><div class="progress-bar"></div></div>
+<div class="layout"><aside class="sidebar"><a class="toc-home" href="../../index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+<main class="main"><article class="reading">
+<div class="eyebrow">Part I · 技术栈全景 / 1-3</div>
+<h1>Carbonite (carb)：被忽略的「操作系统内核」</h1>
+<p class="lead">Carbonite 是 Omniverse 的「操作系统内核」。render-usd 中的 HDRI 透明背景和 MDL 路径修复，都要通过 carb.settings 完成。</p>
+
+<h2 id="s1">一句话理解 Carbonite</h2>
+<p>如果把 Isaac Sim 比作一台电脑，<span class="term">Carbonite</span> 就是 BIOS + 操作系统内核。它提供插件加载、配置管理、日志、事件、文件系统等基础设施。你写的 Python 代码运行在它的上层。</p>
+
+<h2 id="s2">为什么 render-usd 必须了解 carb</h2>
+<p>因为 Isaac Sim 的<strong>几乎所有运行时配置</strong>都通过 <code>carb.settings</code> 管理。render-usd 在以下场景直接调用了 carb：</p>
+<ul>
+<li><strong>HDRI 透明背景</strong>（<code>scene.py</code>）：通过 <code>carb.settings.set("/rtx/post/backgroundZeroAlpha/enabled", True)</code> 启用背景透明。</li>
+<li><strong>MDL 材质路径注册</strong>（<code>cli.py</code>）：通过 <code>carb.settings.set_string_array("/app/mdl/additionalSystemPaths", [...])</code> 告诉 MDL 编译器去哪找材质定义。</li>
+<li><strong>渲染器参数</strong>：分辨率、采样数（SPP）、最大反弹次数等都可以通过 carb 动态调整。</li>
+</ul>
+
+<div class="bridge"><span class="ttl">From GAMES101</span><br/>
+课堂渲染器的配置是硬编码的：<code>const int WIDTH = 1024;</code>。生产环境里，配置是<strong>层级化的键值对树</strong>，路径像 <code>/rtx/pathtracing/spp</code>，运行时可读写，且支持订阅变化回调。</div>
+
+<h2 id="s3">carb.settings 核心用法</h2>
+<div class="code"><div class="code-head"><span class="fname">python</span><button class="copy">copy</button></div>
+<pre><code data-lang="python"># ⚠️ 必须在 SimulationApp 初始化之后才能用！
+from isaacsim import SimulationApp
+app = SimulationApp({"headless": True})
+
+import carb.settings
+settings = carb.settings.get_settings()
+
+# 读取
+spp = settings.get("/rtx/pathtracing/spp")          # 每像素采样数
+width = settings.get_as_int("/app/renderer/resolution/width")
+
+# 写入
+settings.set("/rtx/post/backgroundZeroAlpha/enabled", True)
+settings.set_int("/rtx/pathtracing/spp", 64)
+settings.set_string_array("/app/mdl/additionalSystemPaths", ["/path/to/mdl"])
+
+# 监听变化
+def on_change(item, event_type):
+    if event_type == carb.settings.ChangeEventType.CHANGED:
+        print("SPP changed to", settings.get("/rtx/pathtracing/spp"))
+
+sub = settings.subscribe_to_node_change_events("/rtx/pathtracing/spp", on_change)
+</code></pre></div>
+
+<h2 id="s4">启动顺序：为什么 carb 必须在 SimulationApp 之后</h2>
+<p>这是新手最常踩的坑：</p>
+<div class="code"><div class="code-head"><span class="fname">python</span><button class="copy">copy</button></div>
+<pre><code data-lang="python"># ❌ 这会崩溃（Carbonite 运行时还不存在）
+import carb.settings
+settings = carb.settings.get_settings()   # <-- Segfault!
+
+# ✅ 正确顺序
+from isaacsim import SimulationApp
+app = SimulationApp({"headless": True})   # <-- 初始化 Carbonite + Kit + 所有扩展
+
+import carb.settings                      # <-- 现在 C++ 后端已经就绪
+settings = carb.settings.get_settings()   # <-- 安全
+</code></pre></div>
+
+<p><code>SimulationApp()</code> 内部会加载 <code>libcarb.settings.plugin.so</code> 等核心插件。在此之前，任何 <code>carb.settings.get_settings()</code> 调用都会因为底层 C++ 对象不存在而直接段错误。</p>
+
+<div class="callout callout-warn">
+<strong>工程铁律</strong>：在 render-usd 的 <code>cli.py</code> 中，所有 <code>import carb</code> 和 <code>import omni</code> 的代码都必须在 <code>SimulationApp(CONFIG)</code> 之后执行。这就是 <code>cli.py</code> 采用「先解析参数 → 再启动 Isaac Sim → 再 lazy import 业务模块」结构的原因。
+</div>
+
+<nav class="prevnext" aria-label="上一节 / 下一节"></nav>
+</article></main><aside class="rail"><h4>On this page</h4><ul></ul></aside></div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<script src="../../content.js"></script><script src="../../assets/js/book.js"></script>
+<script defer>window.addEventListener("load",function(){if(typeof window.renderMathInElement==="function"){window.renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:true},{left:"\\(",right:"\\)",display:false},{left:"$",right:"$",display:false}],throwOnError:false});}});</script>
+</body></html>

@@ -1,0 +1,48 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>从 MVP 矩阵到 Isaac Sim Camera sensor — Render-USD Learning Guide</title>
+<link rel="stylesheet" href="../../assets/css/book.css"/></head>
+<body data-root="../../" data-section-id="2-3">
+<header class="topbar"><button class="menu-btn">☰</button><a class="brand" href="../../index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a><span class="spacer"></span>
+<nav class="topnav"><a href="../../index.html">目录</a></nav><button class="theme-toggle" aria-label="切换明暗主题"></button></header>
+<div class="progress-track"><div class="progress-bar"></div></div>
+<div class="layout"><aside class="sidebar"><a class="toc-home" href="../../index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+<main class="main"><article class="reading">
+<div class="eyebrow">Part I · 技术栈全景 / 2-3</div>
+<h1>从 MVP 矩阵到 Isaac Sim Camera sensor</h1>
+<p class="lead">在 GAMES101 里，相机是 View + Projection 两个矩阵。在 Isaac Sim 里，相机是一个带光学参数的物理传感器，还要考虑 annotator 和坐标系差异。</p>
+
+<h2 id="s1">GAMES101 的相机模型</h2>
+<p>你还记得这个经典流程：</p>
+<div class="math-block">$$ P_{clip} = M_{proj} \cdot M_{view} \cdot M_{model} \cdot P_{world} $$</div>
+<ul>
+<li><strong>Model</strong>：把物体从局部坐标变换到世界坐标</li>
+<li><strong>View</strong>：用 <code>LookAt(eye, center, up)</code> 把世界坐标变换到相机坐标</li>
+<li><strong>Projection</strong>：用 <code>Perspective(fov, aspect, near, far)</code> 把相机坐标压到 NDC 的立方体里</li>
+</ul>
+
+<h2 id="s2">Isaac Sim 的 Camera 是什么</h2>
+<p>Isaac Sim 的 <code>Camera</code> 是一个 <span class="term">XFormPrim</span>（可变换的 USD Prim），附加了传感器逻辑。它的参数更接近真实相机：</p>
+<table class="comp-table">
+<tr><th>参数</th><th>GAMES101</th><th>Isaac Sim Camera</th></tr>
+<tr><td>位置</td><td><code>eye</code> (vec3)</td><td><code>world_pose.position</code> (numpy array)</td></tr>
+<tr><td>朝向</td><td><code>lookAt + up</code></td><td><code>world_pose.orientation</code> (quaternion)</td></tr>
+<tr><td>视野</td><td><code>fovY</code> (角度)</td><td><code>focal_length</code> (mm) + <code>aperture</code> (mm)</td></tr>
+<tr><td>裁剪</td><td><code>near, far</code></td><td><code>clipping_range</code> (near, far)</td></tr>
+<tr><td>输出</td><td>RGB framebuffer</td><td>RGBA / Depth / BBox2D / BBox3D / Semantic Seg</td></tr>
+</table>
+
+<div class="bridge"><span class="ttl">From GAMES101</span><br/>
+你课堂代码里的 <code>Camera camera(eye, center, up)</code> 只是内存里的一个结构体。Isaac Sim 的 <code>Camera</code> 是 USD Stage 上的一个 Prim，有物理存在，会被渲染器「看到」，并且每帧自动抓取数据到 annotator。</div>
+
+<h2 id="s3">坐标系陷阱</h2>
+<p>GAMES101 和 Isaac Sim 使用不同的坐标系：</p>
+<ul>
+<li>GAMES101：右手系，<strong>Y 向上</strong>，LookAt 看向 -Z</li>
+<li>Isaac Sim / USD：右手系，<strong>Z 向上</strong>（默认），但可以通过 Stage metadata 配置</li>
+</ul>
+<p>render-usd 的 <code>set_camera_look_at()</code> 函数内部做了坐标转换：它用球坐标（azimuth, elevation, distance）计算相机在世界空间的位置，再用 <code>scipy.spatial.transform.Rotation</code> 生成 quaternion。这里的 <code>azimuth=0</code> 对应 +X 方向（Front View），<code>azimuth=90</code> 对应 +Y 方向（Left View）。</p>
+
+<nav class="prevnext"></nav>
+</article></main><aside class="rail"><h4>On this page</h4><ul></ul></aside></div>
+<script src="../../content.js"></script><script src="../../assets/js/book.js"></script>
+</body></html>

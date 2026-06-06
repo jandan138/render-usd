@@ -1,0 +1,41 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>MDL 材质路径修复与材质系统 — Render-USD Learning Guide</title>
+<link rel="stylesheet" href="../../assets/css/book.css"/></head>
+<body data-root="../../" data-section-id="7-3">
+<header class="topbar"><button class="menu-btn">☰</button><a class="brand" href="../../index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a><span class="spacer"></span>
+<nav class="topnav"><a href="../../index.html">目录</a></nav><button class="theme-toggle" aria-label="切换明暗主题"></button></header>
+<div class="progress-track"><div class="progress-bar"></div></div>
+<div class="layout"><aside class="sidebar"><a class="toc-home" href="../../index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+<main class="main"><article class="reading">
+<div class="eyebrow">Part IV · 规模化渲染 / 7-3</div>
+<h1>MDL 材质路径修复与材质系统</h1>
+<p class="lead">渲染结果全红？多半是 MDL 材质路径断了。render-usd 的 mdl_utils.py 提供了一套自动修复机制。</p>
+
+<h2 id="s1">MDL 是什么</h2>
+<p><span class="term">MDL (Material Definition Language)</span> 是 NVIDIA 开发的声明式材质语言。与 <span class="term">UsdPreviewSurface</span> 不同，MDL 是「渲染器绑定」的：它直接描述光与表面的物理交互（BSDF），由目标渲染器编译执行。</p>
+<p>GRScenes 数据集使用自定义的 <code>KooPbr.mdl</code> 材质，定义了 <code>KooMtl</code> 结构体，包含 <code>base_color</code>、<code>metallic</code>、<code>roughness</code> 等参数。</p>
+
+<h2 id="s2">路径断裂的症状</h2>
+<ul>
+<li>渲染结果全红（Isaac Sim 的「材质缺失」默认色）</li>
+<li>控制台出现 <code>MDL compiler error: cannot find module '::KooPbr'</code></li>
+<li>某些物体显示为纯白色或纯黑色（fallback shader）</li>
+</ul>
+
+<h2 id="s3">修复机制</h2>
+<p><code>mdl_utils.fix_mdls()</code> 的核心逻辑：</p>
+<ol>
+<li>遍历 Stage 上所有引用 MDL 的 Prim</li>
+<li>检查 <code>mdl:sourceAsset</code> 和 <code>mdl:module</code> 属性中的路径</li>
+<li>如果路径不存在，尝试用 <code>DEFAULT_MDL_PATH</code> 或搜索路径中的候选替换</li>
+<li>通过 <code>carb.settings.set_string_array("/app/mdl/additionalSystemPaths", [...])</code> 注册搜索路径</li>
+</ol>
+
+<div class="callout callout-warn">
+<strong>注意</strong>：MDL 修复必须在 <code>SimulationApp</code> 启动之后执行，因为 <code>carb.settings</code> 在启动前不可用。CLI 中通过 lazy import 保证了这一点。
+</div>
+
+<nav class="prevnext"></nav>
+</article></main><aside class="rail"><h4>On this page</h4><ul></ul></aside></div>
+<script src="../../content.js"></script><script src="../../assets/js/book.js"></script>
+</body></html>

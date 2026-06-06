@@ -1,0 +1,37 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>RTX hardware：从 Turing 到 Ampere — Render-USD Learning Guide</title>
+<link rel="stylesheet" href="../../assets/css/book.css"/></head>
+<body data-root="../../" data-section-id="2-2">
+<header class="topbar"><button class="menu-btn">☰</button><a class="brand" href="../../index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a><span class="spacer"></span>
+<nav class="topnav"><a href="../../index.html">目录</a></nav><button class="theme-toggle" aria-label="切换明暗主题"></button></header>
+<div class="progress-track"><div class="progress-bar"></div></div>
+<div class="layout"><aside class="sidebar"><a class="toc-home" href="../../index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+<main class="main"><article class="reading">
+<div class="eyebrow">Part I · 技术栈全景 / 2-2</div>
+<h1>RTX hardware：从 Turing 到 Ampere</h1>
+<p class="lead">为什么 RTX GPU 能让 PathTracing 从「离线数小时」变成「准实时」？秘密在 RT Core 和 Tensor Core 里。</p>
+
+<h2 id="s1">RT Core 做什么</h2>
+<p><span class="term">RT Core</span> 是 NVIDIA 从 Turing 架构开始引入的专用硬件单元。它只做两件事，但做得极快：</p>
+<ul>
+<li><strong>BVH Traversal</strong>：遍历加速结构，找到光线可能击中的三角形组</li>
+<li><strong>Ray-Triangle Intersection</strong>：精确计算光线与三角形的交点和重心坐标</li>
+</ul>
+<p>在 Turing 之前，这两个操作必须由 CUDA core 用软件实现。RT Core 的硬件加速使得 <span class="term">RayTracing</span> 的性能提升了约 <strong>10×</strong>。</p>
+
+<h2 id="s2">Tensor Core 与 Denoising</h2>
+<p><span class="term">Tensor Core</span> 原本为深度学习矩阵乘法设计。在渲染管线中，它被用于：</p>
+<ul>
+<li><span class="term">DLSS (Deep Learning Super Sampling)</span>：低分辨率渲染 + AI 上采样到高分辨率</li>
+<li><span class="term">Denoising</span>：PathTracing 每帧采样数少（SPP 低），噪声大。Tensor Core 加速的神经网络可以在几毫秒内把噪声图变成干净图。</li>
+</ul>
+
+<h2 id="s3">为什么 render-usd 需要 RTX</h2>
+<p>render-usd 的 <code>CONFIG</code> 里指定了 <code>"renderer": "PathTracing"</code>。PathTracing 需要追踪大量光线，没有 RT Core 的 GPU 运行 Isaac Sim 会非常缓慢，甚至无法达到可接受的收敛质量。</p>
+<div class="callout callout-warn">
+<strong>硬件要求</strong>：render-usd 的 README 明确要求「NVIDIA GPU with RTX support」。这不是为了炫技，而是 PathTracing 在 non-RTX GPU 上 fallback 到 CUDA software raytracing 后，性能不足以支撑批量生产。</div>
+
+<nav class="prevnext"></nav>
+</article></main><aside class="rail"><h4>On this page</h4><ul></ul></aside></div>
+<script src="../../content.js"></script><script src="../../assets/js/book.js"></script>
+</body></html>

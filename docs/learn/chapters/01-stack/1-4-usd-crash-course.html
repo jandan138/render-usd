@@ -1,0 +1,52 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>USD Stage / Prim / Property 速成 — Render-USD Learning Guide</title>
+<link rel="stylesheet" href="../../assets/css/book.css"/></head>
+<body data-root="../../" data-section-id="1-4">
+<header class="topbar"><button class="menu-btn" aria-label="目录">☰</button>
+<a class="brand" href="../../index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a><span class="spacer"></span>
+<nav class="topnav"><a href="../../index.html">目录</a></nav><button class="theme-toggle" aria-label="切换明暗主题" title="明暗主题"></button></header>
+<div class="progress-track"><div class="progress-bar"></div></div>
+<div class="layout"><aside class="sidebar"><a class="toc-home" href="../../index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+<main class="main"><article class="reading">
+<div class="eyebrow">Part I · 技术栈全景 / 1-4</div>
+<h1>USD Stage / Prim / Property 速成</h1>
+<p class="lead">USD 不是「另一种 3D 文件格式」，它是一个场景图数据库。理解 Stage、Prim、Property 的三层结构，是阅读 render-usd 源码的前提。</p>
+
+<h2 id="s1">Stage：USD 的「文档」</h2>
+<p><span class="term">Stage</span> 是 USD 的顶层容器，类似于一个打开的数据库连接。你通过 <code>Usd.Stage.Open(path)</code> 打开一个 <code>.usd</code> 文件，得到一个 Stage 对象，然后在这个对象上查询、修改场景图。</p>
+<div class="code"><div class="code-head"><span class="fname">python</span><button class="copy">copy</button></div>
+<pre><code data-lang="python">from pxr import Usd
+stage = Usd.Stage.Open("/path/to/asset.usd")
+prim = stage.GetPrimAtPath("/Root/Instance")  # 按路径获取 Prim
+</code></pre></div>
+
+<h2 id="s2">Prim：场景图的「节点」</h2>
+<p><span class="term">Prim</span> 是 USD 场景图的基本单元。每个 Prim 有：</p>
+<ul>
+<li><strong>路径（Path）</strong>：唯一的层级地址，如 <code>/World/scene/Instances/Bed_01</code></li>
+<li><strong>类型（Type）</strong>：如 <code>Mesh</code>、<code>Xform</code>、<code>Camera</code>、<code>Material</code></li>
+<li><strong>属性（Properties）</strong>：存储实际数据，如顶点坐标、变换矩阵、材质绑定</li>
+<li><strong>子节点（Children）</strong>：形成树状层级</li>
+</ul>
+
+<h2 id="s3">Property：Prim 的「字段」</h2>
+<p><span class="term">Property</span> 分为两类：</p>
+<ul>
+<li><strong>Attribute</strong>：有值的属性，如 <code>points</code>（顶点数组）、<code>faceVertexIndices</code>。通过 <code>attr.Get()</code> 读取。</li>
+<li><strong>Relationship</strong>：指向其他 Prim 路径的引用，如 <code>binding:material</code> 指向材质 Prim。通过 <code>rel.GetTargets()</code> 读取。</li>
+</ul>
+
+<div class="bridge"><span class="ttl">From GAMES101</span><br/>
+你的 classroom renderer 里，mesh 数据结构可能是 <code>struct Mesh { vector&lt;vec3&gt; vertices; vector&lt;int&gt; faces; }</code>。USD 的 <code>Mesh</code> Prim 也存储同样的数据，但放在 <code>points</code> 和 <code>faceVertexIndices</code> 这两个 Attribute 里，并且多了层级、变换、材质绑定等生产级元数据。</div>
+
+<h2 id="s4">Composition Arcs：USD 的超能力</h2>
+<p>USD 最强大的特性是<strong>组合（Composition）</strong>。多个 USD 文件可以通过 <span class="term">SubLayer</span>、<span class="term">Reference</span>、<span class="term">Payload</span>、<span class="term">VariantSet</span> 组合成一个逻辑场景，而不需要复制数据。</p>
+<p>render-usd 中的 <code>add_reference_to_stage(usd_path, prim_path)</code> 就是 Reference 组合弧的简单应用：把外部 USD 文件引用到当前 Stage 的某个 Prim 路径下。</p>
+
+<nav class="prevnext" aria-label="上一节 / 下一节"></nav>
+</article></main><aside class="rail"><h4>On this page</h4><ul></ul></aside></div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<script src="../../content.js"></script><script src="../../assets/js/book.js"></script>
+<script defer>window.addEventListener("load",function(){if(typeof window.renderMathInElement==="function"){window.renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:true},{left:"\\(",right:"\\)",display:false},{left:"$",right:"$",display:false}],throwOnError:false});}});</script>
+</body></html>

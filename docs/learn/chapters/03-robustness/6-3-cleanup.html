@@ -1,0 +1,40 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>GPU 资源清理：cleanup() 方法论 — Render-USD Learning Guide</title>
+<link rel="stylesheet" href="../../assets/css/book.css"/></head>
+<body data-root="../../" data-section-id="6-3">
+<header class="topbar"><button class="menu-btn">☰</button><a class="brand" href="../../index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a><span class="spacer"></span>
+<nav class="topnav"><a href="../../index.html">目录</a></nav><button class="theme-toggle" aria-label="切换明暗主题"></button></header>
+<div class="progress-track"><div class="progress-bar"></div></div>
+<div class="layout"><aside class="sidebar"><a class="toc-home" href="../../index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+<main class="main"><article class="reading">
+<div class="eyebrow">Part III · 生产级健壮性 / 6-3</div>
+<h1>GPU 资源清理：cleanup() 方法论</h1>
+<p class="lead">Python + GPU 的混合环境是内存泄漏的重灾区。render-usd 的 cleanup() 方法提供了一套可复用的资源释放模式。</p>
+
+<h2 id="s1">Python GC 不知道 GPU 显存</h2>
+<p>Python 的 <code>gc</code> 模块只追踪 Python 对象之间的引用循环。它不知道一个 <code>Camera</code> 对象内部持有一个 CUDA framebuffer 指针。当 Camera 对象被 <code>gc</codeu003e 回收时，底层的 GPU 显存可能不会被同步释放——特别是当 C++ 扩展中存在循环引用时。</p>
+
+<h2 id="s2">cleanup() 的三层清理</h2>
+<ol>
+<li><strong>Annotator 清理</strong>：<code>camera._custom_annotators.clear()</code> 释放 Replicator 节点的 GPU 缓存</li>
+<li><strong>Render Product 清理</strong>：<code>camera._render_product = None</code> 断开相机与 GPU framebuffer 的绑定</li>
+<li><strong>World 重置</strong>：<code>world.reset()</code> 清除 USD imaging delegate 的缓存状态</li>
+</ol>
+
+<h2 id="s3">周期性 gc.collect()</h2>
+<p>即使在正常运行中，render-usd 也会每 50 个资产强制一次垃圾回收：</p>
+<div class="code"><div class="code-head"><span class="fname">renderer.py</span><button class="copy">copy</button></div>
+<pre><code data-lang="python">if (idx_obj + 1) % 50 == 0:
+    gc.collect()
+    print(f"[Memory] Garbage collected after {idx_obj + 1} objects")
+</code></pre></div>
+<p>这不是过度谨慎。在 Isaac Sim 中，每个相机帧、每个 RGBA 数组、每个 BBox 结果都是 Python 对象。处理几千个资产时，这些对象的累积会显著增加内存压力，触发 OS 的 OOM killer 或导致性能下降。</p>
+
+<div class="callout callout-warn">
+<strong>Best Practice</strong>：在 GPU + Python 的混合环境中，永远不要依赖 Python 的自动 GC 来管理 GPU 资源。显式的 <code>cleanup()</code> 和定期的 <code>gc.collect()</code> 是生产代码的标配。
+</div>
+
+<nav class="prevnext"></nav>
+</article></main><aside class="rail"><h4>On this page</h4><ul></ul></aside></div>
+<script src="../../content.js"></script><script src="../../assets/js/book.js"></script>
+</body></html>

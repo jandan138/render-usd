@@ -1,0 +1,34 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Bounding Box 驱动的相机距离 — Render-USD Learning Guide</title>
+<link rel="stylesheet" href="../../assets/css/book.css"/></head>
+<body data-root="../../" data-section-id="4-1">
+<header class="topbar"><button class="menu-btn">☰</button><a class="brand" href="../../index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a><span class="spacer"></span>
+<nav class="topnav"><a href="../../index.html">目录</a></nav><button class="theme-toggle" aria-label="切换明暗主题"></button></header>
+<div class="progress-track"><div class="progress-bar"></div></div>
+<div class="layout"><aside class="sidebar"><a class="toc-home" href="../../index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+<main class="main"><article class="reading">
+<div class="eyebrow">Part II · 渲染管线核心 / 4-1</div>
+<h1>Bounding Box 驱动的相机距离</h1>
+<p class="lead">相机应该离物体多远？太近了塞满画面，太远了变成像素点。render-usd 的答案是：用 bounding box 的对角线长度决定 distance，确保画面 occupancy 约 60-65%。</p>
+
+<h2 id="s1">算法：distance = bbox_diagonal × scale</h2>
+<div class="code"><div class="code-head"><span class="fname">renderer.py</span><button class="copy">copy</button></div>
+<pre><code data-lang="python">bbox_min, bbox_max = compute_bbox(prim)
+center = (bbox_min + bbox_max) / 2
+distance = np.linalg.norm(bbox_max - bbox_min) * 1.0
+distance = max(distance, 0.1)   # 防除零，防止相机钻到原点
+</code></pre></div>
+<p>这里的 <code>1.0</code> 是经验系数。结合 <code>focal_length=18mm</code> 和 <code>512×512</code> 分辨率，它恰好让大多数家具类资产占据画面 60-65%。</p>
+
+<h2 id="s2">为什么用对角线而不是高度或宽度</h2>
+<p>因为物体的长宽比不确定。一张床可能很长（2m × 1.5m × 0.5m），一盏灯可能很高（0.3m × 0.3m × 1.2m）。用对角线 <code>norm(bbox_max - bbox_min)</code> 是最鲁棒的单一指标，能覆盖任意朝向的物体。</p>
+
+<h2 id="s3">世界坐标系与局部坐标系</h2>
+<p><code>compute_bbox()</code> 返回的是<strong>世界坐标系</strong>下的 <code>(bbox_min, bbox_max)</code>，不是局部坐标。这意味着即使物体被缩放、旋转、平移，算出来的相机距离仍然是正确的。</p>
+<div class="bridge"><span class="ttl">From GAMES101</span><br/>
+课堂渲染器里，模型通常在局部坐标系内，你需要手动写 <code>Model matrix</code> 把它们变换到世界空间。USD 的 <code>ComputeWorldBound</code> 已经帮你做了这件事——它沿着 Prim 的层级累积所有父节点的变换，直接给出世界空间的包围盒。</div>
+
+<nav class="prevnext"></nav>
+</article></main><aside class="rail"><h4>On this page</h4><ul></ul></aside></div>
+<script src="../../content.js"></script><script src="../../assets/js/book.js"></script>
+</body></html>

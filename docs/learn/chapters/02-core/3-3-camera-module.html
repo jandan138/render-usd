@@ -1,0 +1,75 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Camera 模块：Spherical Look-At — Render-USD Learning Guide</title>
+<link rel="stylesheet" href="../../assets/css/book.css"/></head>
+<body data-root="../../" data-section-id="3-3">
+<header class="topbar"><button class="menu-btn">☰</button><a class="brand" href="../../index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a><span class="spacer"></span>
+<nav class="topnav"><a href="../../index.html">目录</a></nav><button class="theme-toggle" aria-label="切换明暗主题"></button></header>
+<div class="progress-track"><div class="progress-bar"></div></div>
+<div class="layout"><aside class="sidebar"><a class="toc-home" href="../../index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+<main class="main"><article class="reading">
+<div class="eyebrow">Part II · 渲染管线核心 / 3-3</div>
+<h1>Camera 模块：Spherical Look-At</h1>
+<p class="lead">camera.py 封装了 Isaac Sim Camera 传感器的创建、配置和数据提取。其中最精妙的部分是 set_camera_look_at()——用球坐标自动环绕物体。</p>
+
+<h2 id="s1">init_camera()：创建传感器</h2>
+<div class="code"><div class="code-head"><span class="fname">camera.py</span><button class="copy">copy</button></div>
+<pre><code data-lang="python">from omni.isaac.sensor import Camera
+
+def init_camera(camera_name="camera", image_width=640, image_height=480,
+                position=np.array([0.0, 0.0, 0.0]),
+                orientation=np.array([0.0, 0.0, 0.0, 1.0])):
+    camera = Camera(
+        prim_path=f"/World/{camera_name}",
+        resolution=(image_width, image_height),
+        position=position,
+        orientation=orientation
+    )
+    return camera
+</code></pre></div>
+<p>注意 <code>Camera</code> 是 Isaac Sim 的传感器类，不是简单的矩阵容器。它在 USD Stage 上创建了一个真实的 Prim，渲染器会「看到」它并从这个视角生成图像。</p>
+
+<h2 id="s2">set_camera_look_at()：球坐标定位</h2>
+<p>这是 render-usd 相机系统的核心算法。输入是目标中心点、方位角（azimuth）、仰角（elevation）、距离（distance），输出是相机的世界坐标和朝向 quaternion：</p>
+<div class="code"><div class="code-head"><span class="fname">camera.py (核心逻辑)</span><button class="copy">copy</button></div>
+<pre><code data-lang="python">def set_camera_look_at(camera, target, distance=0.4, elevation=90.0, azimuth=0.0):
+    elev_rad = math.radians(elevation)
+    azim_rad = math.radians(azimuth)
+    offset_x = distance * math.cos(elev_rad) * math.cos(azim_rad)
+    offset_y = distance * math.cos(elev_rad) * math.sin(azim_rad)
+    offset_z = distance * math.sin(elev_rad)
+    camera_position = target_position + np.array([offset_x, offset_y, offset_z])
+    rot = R.from_euler("xyz", [0, elevation, azimuth - 180], degrees=True)
+    quaternion = rot.as_quat()
+    # reorder to Isaac Sim convention (w, x, y, z)
+    quaternion = np.array([quaternion[3], quaternion[0], quaternion[1], quaternion[2]])
+    camera.set_world_pose(position=camera_position, orientation=quaternion)
+</code></pre></div>
+
+<h2 id="s3">视角映射表</h2>
+<p>remder-usd 默认生成 4 个视角，对应的球坐标参数如下：</p>
+<table class="comp-table">
+<tr><th>视角名</th><th>Azimuth</th><th>方向</th><th>含义</th></tr>
+<tr><td>front</td><td>0°</td><td>+X</td><td>从物体正前方看</td></tr>
+<tr><td>left</td><td>90°</td><td>+Y</td><td>从物体左侧看</td></tr>
+<tr><td>back</td><td>180°</td><td>-X</td><td>从物体正后方看</td></tr>
+<tr><td>right</td><td>270°</td><td>-Y</td><td>从物体右侧看</td></tr>
+</table>
+<p><strong>Elevation</strong> 固定为 35°，即「略俯视的高角度」，避免地平线遮挡，同时展示物体顶面细节。</p>
+
+<div class="bridge"><span class="ttl">From GAMES101</span><br/>
+你的课堂 renderer 里，相机位置是手动设的 <code>(0, 0, 5)</code>。render-usd 的相机位置是<strong>数据驱动的</strong>：先算物体的 bounding box，再据对角线长度决定 distance，确保任何大小的物体都能完整入镜且占画面 60-65%。</div>
+
+<h2 id="s4">setup_camera()：挂载 Annotators</h2>
+<p><code>setup_camera()</code> 负责给 Camera 挂载各种输出通道：</p>
+<ul>
+<li><code>add_distance_to_image_plane_to_frame()</code> → Depth</li>
+<li><code>add_bounding_box_2d_tight_to_frame()</code> → 紧包围盒</li>
+<li><code>add_bounding_box_2d_loose_to_frame()</code> → 松包围盒</li>
+<li><code>add_semantic_segmentation_to_frame()</code> → 语义掩码</li>
+</ul>
+<p>这些 annotator 在 <code>initialize()</code> 时注册到渲染管线，每帧自动更新。</p>
+
+<nav class="prevnext"></nav>
+</article></main><aside class="rail"><h4>On this page</h4><ul></ul></aside></div>
+<script src="../../content.js"></script><script src="../../assets/js/book.js"></script>
+</body></html>

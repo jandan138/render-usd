@@ -1,0 +1,61 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>NaN / Inf 检查：数值稳定的最后一道防线 — Render-USD Learning Guide</title>
+<link rel="stylesheet" href="../../assets/css/book.css"/></head>
+<body data-root="../../" data-section-id="5-3">
+<header class="topbar"><button class="menu-btn">☰</button><a class="brand" href="../../index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a><span class="spacer"></span>
+<nav class="topnav"><a href="../../index.html">目录</a></nav><button class="theme-toggle" aria-label="切换明暗主题"></button></header>
+<div class="progress-track"><div class="progress-bar"></div></div>
+<div class="layout"><aside class="sidebar"><a class="toc-home" href="../../index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+<main class="main"><article class="reading">
+<div class="eyebrow">Part III · 生产级健壮性 / 5-3</div>
+<h1>NaN / Inf 检查：数值稳定的最后一道防线</h1>
+<p class="lead">USD 文件来自不可控的外部来源，顶点数据可能包含 NaN 或 Inf。如果不检查，这些坏值会沿着管线传播，导致相机位置异常、segfault、或全黑/全白的渲染结果。</p>
+
+<h2 id="s1">NaN/Inf 从哪来</h2>
+<ul>
+<li><strong>损坏的 USD 导出</strong>：某些 DCC 工具（3ds Max、Maya 插件）在导出时可能产生未初始化的顶点</li>
+<li><strong>除零</strong>：齐次坐标变换中 w=0 会导致 <code>x/w = Inf</code></li>
+<li><strong>骨骼动画退化</strong>：某些 pose 下权重矩阵奇异，变形后的顶点坐标变成 NaN</li>
+</ul>
+
+<h2 id="s2">remder-usd 的三层防御</h2>
+<p><strong>第一层：Prim 创建后验证</strong></p>
+<div class="code"><div class="code-head"><span class="fname">renderer.py</span><button class="copy">copy</button></div>
+<pre><code data-lang="python">usd_prim = create_prim(show_prim_path, ...)
+if usd_prim is None or not usd_prim.IsValid():
+    print(f"[Error] Failed to create valid prim for {object_usd_path}")
+    delete_prim(show_prim_path)
+    continue
+</code></pre></div>
+
+<p><strong>第二层：Bounding Box 数值检查</strong></p>
+<div class="code"><div class="code-head"><span class="fname">renderer.py</span><button class="copy">copy</button></div>
+<pre><code data-lang="python">if np.any(np.isnan(bbox_min)) or np.any(np.isnan(bbox_max)):
+    print(f"[Error] Invalid bounding box (NaN) for {object_name}, skipping")
+    delete_prim(show_prim_path)
+    continue
+if np.any(np.isinf(bbox_min)) or np.any(np.isinf(bbox_max)):
+    print(f"[Error] Invalid bounding box (Inf) for {object_name}, skipping")
+    delete_prim(show_prim_path)
+    continue
+</code></pre></div>
+
+<p><strong>第三层：Mesh 顶点清理</strong></p>
+<div class="code"><div class="code-head"><span class="fname">prim_utils.py</span><button class="copy">copy</button></div>
+<pre><code data-lang="python">if np.isnan(points).any():
+    nan_mask = np.isnan(points).any(axis=1)
+    valid_points_mask = ~nan_mask
+    # 重新建立 faceVertexIndices 映射，丢弃含 NaN 顶点的面
+    old_to_new_indices = np.full(points.shape[0], -1)
+    old_to_new_indices[valid_points_mask] = np.arange(np.sum(valid_points_mask))
+    valid_faces_mask = np.all(old_to_new_indices[faceVertexIndices] != -1, axis=1)
+</code></pre></div>
+
+<div class="callout callout-warn">
+<strong>工程铁律</strong>：在数据流入算法核心之前，永远校验数值有效性。单个坏资产不应该搞垮整个批量任务。
+</div>
+
+<nav class="prevnext"></nav>
+</article></main><aside class="rail"><h4>On this page</h4><ul></ul></aside></div>
+<script src="../../content.js"></script><script src="../../assets/js/book.js"></script>
+</body></html>

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>production rendering 全景：the thumbnail journey — Render-USD Learning Guide</title>
+  <meta name="description" content="一张 thumbnail 从原始资产到最终 PNG，要经历哪些阶段？我们把整条 pipeline 展开成一张地图。" />
+  <link rel="stylesheet" href="../..//assets/css/book.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+</head>
+<body data-root="../../" data-section-id="0-2">
+  <header class="topbar">
+    <button class="menu-btn" aria-label="目录">☰</button>
+    <a class="brand" href="../..//index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a>
+    <span class="spacer"></span>
+    <nav class="topnav"><a href="../..//index.html">目录</a></nav>
+    <button class="theme-toggle" aria-label="切换明暗主题" title="明暗主题"></button>
+  </header>
+  <div class="progress-track"><div class="progress-bar"></div></div>
+
+  <div class="layout">
+    <aside class="sidebar"><a class="toc-home" href="../..//index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+
+    <main class="main">
+      <article class="reading">
+        <div class="eyebrow">Part 0 · 导论 / 0-2</div>
+        <h1>production rendering 全景：the thumbnail journey</h1>
+        <p class="lead">一张 thumbnail 从原始资产到最终 PNG，要经历哪些阶段？我们把整条 pipeline 展开成一张地图。</p>
+
+
+<h2 id="s1">Asset Journey 地图</h2>
+<p>想象你手里有一个家具 <span class="term">USD</span> 资产——比如一张来自 <span class="term">GRScenes</span> 数据集的床。它从磁盘上的一个 <code>.usd</code> 文件，变成四张标准视角的 thumbnail（front / left / back / right），要走过下面这段路：</p>
+
+<div class="pipeline">
+  <span class="pipe-step">USD File</span><span class="pipe-arrow">→</span>
+  <span class="pipe-step">USD Stage</span><span class="pipe-arrow">→</span>
+  <span class="pipe-step">Isaac Sim World</span><span class="pipe-arrow">→</span>
+  <span class="pipe-step">HDRI Lighting</span><span class="pipe-arrow">→</span>
+  <span class="pipe-step">Camera Pose</span><span class="pipe-arrow">→</span>
+  <span class="pipe-step">RTX Render</span><span class="pipe-arrow">→</span>
+  <span class="pipe-step">RGBA Extraction</span><span class="pipe-arrow">→</span>
+  <span class="pipe-step">Alpha Composite</span><span class="pipe-arrow">→</span>
+  <span class="pipe-step">PNG Output</span>
+</div>
+
+<h2 id="s2">Stage 1：USD 舞台搭建</h2>
+<p><span class="term">USD</span> 不是简单的 mesh 文件。它是一个<strong>场景图（scene graph）</strong>：有层级（hierarchy）、组合弧（composition arcs）、引用（references）、变体（variants）。你的床可能由 <code>BedFrame.usd</code>、<code>Mattress.usd</code>、<code>Pillow.usd</code> 组合而成，材质又引用外部的 <code>.mdl</code> 文件。</p>
+<p><strong>Isaac Sim</strong> 会把这个 USD 舞台加载进 <span class="term">OmniKit</span> 的运行时，创建一个 <span class="term">World</span> 对象。World 里不仅有你的床，还有物理状态、渲染状态、相机传感器——全部绑定在一起。</p>
+
+<div class="bridge"><span class="ttl">From GAMES101</span><br/>
+在课堂渲染器里，「加载模型」就是读 <code>.obj</code> 到 <code>vector&lt;Triangle&gt;</code>。在 Isaac Sim 里，「加载模型」意味着构建一整个 <span class="term">USD Stage</span> 的 runtime representation，包括材质编译、纹理上传、BVH 构建。</div>
+
+<h2 id="s3">Stage 2：光照环境——从点光源到 HDRI</h2>
+<p>课堂渲染器里你可能放了一个点光源在 <code>(5, 5, 5)</code>，一个方向光从 <code>(1, 1, 1)</code> 照下来。这在 production 里远远不够——物体表面会过曝或欠曝，阴影硬得像剪纸，金属和玻璃完全没有环境反射。</p>
+<p><strong>HDRI (High Dynamic Range Image)</strong> 解决的是「真实环境光照」的问题。它是一张 360° 全景照片，记录了真实世界里每个方向的光照强度。把它贴在 <span class="term">DomeLight</span> 内壁上，你的床就像被放进了真实摄影棚。</p>
+
+<h2 id="s4">Stage 3：相机——从 LookAt 矩阵到物理传感器</h2>
+<p>在 GAMES101 里，相机就是两个矩阵：</p>
+<div class="math-block">$$ V = \text{LookAt}(eye, center, up), \quad P = \text{Perspective}(fov, aspect, near, far) $$</div>
+<p>在 Isaac Sim 里，相机是一个<strong>物理传感器（sensor）</strong>。它有真实的光学参数：<span class="term">focal length</span>（焦距）、<span class="term">aperture</span>（孔径）、<span class="term">clipping range</span>（裁剪平面）。更重要的是，它能挂载各种 <span class="term">annotator</span>——不只是 RGB，还有 Depth、2D Bounding Box、3D Bounding Box、Semantic Segmentation、Motion Vector。</p>
+
+<h2 id="s5">Stage 4：渲染与提取</h2>
+<p><span class="term">RTX PathTracing</span> 会追踪光线，考虑多次反弹、反射、折射。渲染完成后，<span class="term">Camera sensor</span> 的 <span class="term">annotator</span> 把数据从 GPU 显存读回 CPU 内存。我们拿到的是 <strong>RGBA</strong> 四通道图像——alpha 通道告诉我们哪些像素是物体、哪些像素是背景。</p>
+
+<h2 id="s6">Stage 5：Alpha 合成——给物体换背景</h2>
+<p>因为我们用的是 HDRI DomeLight，背景会被 HDRI 的天空盒占据。如果不处理，你的床就躺在一片奇怪的树林里（取决于你用的 HDRI）。</p>
+<p><strong>backgroundZeroAlpha</strong> 是 RTX 的一个后处理开关：它把「没有击中任何物体的光线」的 alpha 设为 0。然后我们在 Python 里做 <span class="term">alpha compositing</span>：</p>
+<div class="math-block">$$ \text{output} = \text{foreground} \times \alpha + \text{background} \times (1 - \alpha) $$</div>
+<p>这样，白色物体就能在深灰色背景上清晰可见——这是解决「白色物体在白色背景上消失」的经典 trick。</p>
+
+<div class="callout callout-ok">
+<strong>一句话总结</strong>：thumbnail pipeline = 加载场景 + 打光 + 摆相机 + 渲染 + 抠图 + 换背景。render-usd 把这六步封装成了可配置、可批量、可容错的 Python 模块。</div>
+
+
+        <nav class="prevnext" aria-label="上一节 / 下一节"></nav>
+      </article>
+    </main>
+
+    <aside class="rail"><h4>On this page</h4><ul></ul></aside>
+  </div>
+
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script src="../..//content.js"></script>
+  <script src="../..//assets/js/book.js"></script>
+  <script defer>
+    window.addEventListener("load", function () {
+      if (typeof window.renderMathInElement === "function") {
+        window.renderMathInElement(document.body, { delimiters: [{left:"1076229",right:"1076229",display:true},{left:"\(",right:"\)",display:false},{left:"$",right:"$",display:false}], throwOnError: false });
+      }
+    });
+  </script>
+</body>
+</html>

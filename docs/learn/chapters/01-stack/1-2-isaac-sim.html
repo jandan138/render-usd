@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Isaac Sim：仿真与渲染的交汇点 — Render-USD Learning Guide</title>
+  <meta name="description" content="Isaac Sim 是 Omniverse 平台上专门针对机器人仿真和具身智能的应用。render-usd 选择它作为底座，不是偶然。" />
+  <link rel="stylesheet" href="../..//assets/css/book.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+</head>
+<body data-root="../../" data-section-id="1-2">
+  <header class="topbar">
+    <button class="menu-btn" aria-label="目录">☰</button>
+    <a class="brand" href="../..//index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a>
+    <span class="spacer"></span>
+    <nav class="topnav"><a href="../..//index.html">目录</a></nav>
+    <button class="theme-toggle" aria-label="切换明暗主题" title="明暗主题"></button>
+  </header>
+  <div class="progress-track"><div class="progress-bar"></div></div>
+
+  <div class="layout">
+    <aside class="sidebar"><a class="toc-home" href="../..//index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+
+    <main class="main">
+      <article class="reading">
+        <div class="eyebrow">Part I · 技术栈全景 / 1-2</div>
+        <h1>Isaac Sim：仿真与渲染的交汇点</h1>
+        <p class="lead">Isaac Sim 是 Omniverse 平台上专门针对机器人仿真和具身智能的应用。render-usd 选择它作为底座，不是偶然。</p>
+
+
+<h2 id="s1">Isaac Sim 的定位</h2>
+<p><strong>NVIDIA Isaac Sim</strong> 是一个 <span class="term">robotics simulation platform</span>，但它同时也是一个一流的 <span class="term">RTX rendering engine</span>。它的核心用户群是机器人学和具身智能研究者，需要：</p>
+<ul>
+  <li>高保真物理仿真（<span class="term">PhysX</span>）</li>
+  <li>高保真实时渲染（<span class="term">RTX PathTracing / RayTracing</span>）</li>
+  <li>传感器模拟（Camera、Lidar、IMU、Force Sensor）</li>
+  <li>大规模场景和资产库（<span class="term">SimReady</span> assets）</li>
+</ul>
+<p>render-usd 借用它的渲染能力，但跳过了物理仿真部分——我们的目标是出图，不是训练机器人走路。</p>
+
+<h2 id="s2">World、Stage、Context 三件套</h2>
+<p>在 Isaac Sim 的 Python API 中，有三个概念你必须分清：</p>
+
+<table class="comp-table">
+<tr><th>概念</th><th>Python 对象</th><th>类比</th><th>作用</th></tr>
+<tr><td><span class="term">World</span></td><td><code>omni.isaac.core.World</code></td><td>物理世界 + 渲染循环</td><td>管理 physics / rendering timestep，调用 <code>world.step(render=True)</code> 推进一帧</td></tr>
+<tr><td><span class="term">Stage</span></td><td><code>pxr.Usd.Stage</code></td><td>场景描述数据库</td><td>USD 的场景图本身，存储 Prim、属性、关系、组合弧</td></tr>
+<tr><td><span class="term">Context</span></td><td><code>omni.usd.get_context()</code></td><td>USD 文档管理器</td><td>提供对当前 Stage 的访问入口，处理打开/保存/修改</td></tr>
+</table>
+
+<div class="bridge"><span class="ttl">From GAMES101</span><br/>
+课堂渲染器没有 "World" 这个概念。你的渲染循环就是 <code>for each pixel: trace_ray()</code>。Isaac Sim 的 World 则是一个<strong>运行时引擎</strong>，它维护着物理状态、渲染状态、传感器状态的同步。你每调用一次 <code>world.step(render=True)</code>，它就完成一次「物理更新 + 渲染 + 传感器抓取」的完整周期。</div>
+
+<h2 id="s3">为什么用 Isaac Sim 而不是 Blender / Unreal</h2>
+<p>这是一个合理的疑问。Blender 的 Cycles 渲染器非常出色，Unreal Engine 5 的 Lumen 也是顶尖实时 GI 方案。但 render-usd 选择 Isaac Sim 有几个工程上的理由：</p>
+<ul>
+  <li><strong>原生 USD 支持</strong>：Isaac Sim 的 runtime 就是 USD runtime，不需要导入/导出转换。Blender 的 USD IO 会丢失变体、材质绑定等信息。</li>
+  <li><strong>Python-first API</strong>：所有功能都有 Python 绑定，适合自动化管线。Unreal 虽然有 Python 插件，但终究是 C++ 引擎的二次封装。</li>
+  <li><strong>Sensor 生态</strong>：Isaac Sim 内置了 Camera、Lidar、Contact Sensor 等，且输出格式与机器人学工具链对齐。</li>
+  <li><strong>Headless 渲染</strong>：Isaac Sim 可以在无 GUI 的服务器上跑 RTX PathTracing，这是批量 DLC 渲染的前提。</li>
+</ul>
+
+<div class="callout callout-ok">
+<strong>关键决策</strong>：render-usd 的架构与 Isaac Sim 深度耦合。这意味着你能获得最好的 USD 兼容性和传感器生态，但也意味着你必须理解 Isaac Sim 的启动顺序、资源生命周期和 crash 模式。</div>
+
+
+        <nav class="prevnext" aria-label="上一节 / 下一节"></nav>
+      </article>
+    </main>
+
+    <aside class="rail"><h4>On this page</h4><ul></ul></aside>
+  </div>
+
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script src="../..//content.js"></script>
+  <script src="../..//assets/js/book.js"></script>
+  <script defer>
+    window.addEventListener("load", function () {
+      if (typeof window.renderMathInElement === "function") {
+        window.renderMathInElement(document.body, { delimiters: [{left:"1082290",right:"1082290",display:true},{left:"\(",right:"\)",display:false},{left:"$",right:"$",display:false}], throwOnError: false });
+      }
+    });
+  </script>
+</body>
+</html>

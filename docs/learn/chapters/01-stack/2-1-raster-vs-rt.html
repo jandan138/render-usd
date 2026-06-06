@@ -1,0 +1,42 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Rasterization vs RayTracing vs PathTracing — Render-USD Learning Guide</title>
+<link rel="stylesheet" href="../../assets/css/book.css"/></head>
+<body data-root="../../" data-section-id="2-1">
+<header class="topbar"><button class="menu-btn">☰</button><a class="brand" href="../../index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a><span class="spacer"></span>
+<nav class="topnav"><a href="../../index.html">目录</a></nav><button class="theme-toggle" aria-label="切换明暗主题"></button></header>
+<div class="progress-track"><div class="progress-bar"></div></div>
+<div class="layout"><aside class="sidebar"><a class="toc-home" href="../../index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+<main class="main"><article class="reading">
+<div class="eyebrow">Part I · 技术栈全景 / 2-1</div>
+<h1>Rasterization vs RayTracing vs PathTracing</h1>
+<p class="lead">GAMES101 教了你 Rasterization 和基础 Path Tracing。render-usd 使用的是 RTX PathTracing——它和你课堂上学的东西有何不同？</p>
+
+<h2 id="s1">三种渲染范式的本质差异</h2>
+<table class="comp-table">
+<tr><th>特性</th><th>Rasterization</th><th>RayTracing</th><th>PathTracing</th></tr>
+<tr><td>核心思想</td><td>从三角形投影到屏幕，插值着色</td><td>从相机发射光线，求交后追踪反射/折射</td><td>追踪完整光路，考虑全局光照和间接光</td></tr>
+<tr><td>光照精度</td><td>局部光照，hack 阴影/反射</td><td>精确的反射、折射、阴影</td><td>物理正确，能量守恒</td></tr>
+<tr><td>性能</td><td>实时（GPU 固定管线）</td><td>准实时（RT Core 加速）</td><td>离线级质量，需要多帧收敛</td></tr>
+<tr><td>GAMES101</td><td>Assignment 2-3</td><td>未深入</td><td>Assignment 7-8</td></tr>
+</table>
+
+<h2 id="s2">RTX PathTracing 的工作方式</h2>
+<p>Isaac Sim 默认使用 <span class="term">RTX PathTracing</span>。它的流程可以简化为：</p>
+<ol>
+<li>从相机传感器每个像素发射 <span class="term">primary ray</span></li>
+<li>RT Core 用 <span class="term">BVH traversal</span> 快速找到与场景的交点</li>
+<li>在交点处采样 BRDF，发射 <span class="term">secondary ray</span> 追踪间接光</li>
+<li>重复直到命中光源或 Russian Roulette 终止</li>
+<li>多帧累积（<span class="term">SPP: Samples Per Pixel</span>）降低噪声</li>
+</ol>
+
+<div class="bridge"><span class="ttl">From GAMES101</span><br/>
+Assignment 7 里你写的 <code>PathTracer::castRay()</code> 是 CPU 单线程、暴力遍历三角形。RTX PathTracing 把这个过程搬到了 GPU，用 BVH 加速求交（O(log n) 代替 O(n)），并且用 Tensor Core 做 <span class="term">DLSS / denoising</span>。</div>
+
+<div class="callout callout-ok">
+<strong>render-usd 的配置</strong>：在 <code>cli.py</code> 中，<code>CONFIG = {"headless": True, "anti_aliasing": 4, "multi_gpu": False, "renderer": "PathTracing"}</code> 显式指定了 PathTracing 渲染器。</div>
+
+<nav class="prevnext"></nav>
+</article></main><aside class="rail"><h4>On this page</h4><ul></ul></aside></div>
+<script src="../../content.js"></script><script src="../../assets/js/book.js"></script>
+</body></html>

@@ -1,0 +1,46 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>View 命名约定：front / left / back / right — Render-USD Learning Guide</title>
+<link rel="stylesheet" href="../../assets/css/book.css"/></head>
+<body data-root="../../" data-section-id="4-4">
+<header class="topbar"><button class="menu-btn">☰</button><a class="brand" href="../../index.html"><span class="mark">◆</span><span class="name">Render-USD</span></a><span class="spacer"></span>
+<nav class="topnav"><a href="../../index.html">目录</a></nav><button class="theme-toggle" aria-label="切换明暗主题"></button></header>
+<div class="progress-track"><div class="progress-bar"></div></div>
+<div class="layout"><aside class="sidebar"><a class="toc-home" href="../../index.html">Render-USD Learning Guide</a><nav class="toc"></nav></aside>
+<main class="main"><article class="reading">
+<div class="eyebrow">Part II · 渲染管线核心 / 4-4</div>
+<h1>View 命名约定：front / left / back / right</h1>
+<p class="lead">render-usd 支持两种输出命名风格：index（_0.png, _1.png…）和 view（front.png, left.png…）。理解它们的映射关系，是下游任务对接的前提。</p>
+
+<h2 id="s1">两种命名风格</h2>
+<table class="comp-table">
+<tr><th>风格</th><th>文件名</th><th>适用场景</th></tr>
+<tr><td>index</td><td><code>{object}_0.png</code>, <code>{object}_1.png</code>...</td><td>通用批量处理，机器友好</td></tr>
+<tr><td>view</td><td><code>front.png</code>, <code>left.png</code>, <code>back.png</code>, <code>right.png</code></td><td>人类可读，VLM 标注对接</td></tr>
+</table>
+
+<h2 id="s2">命名映射逻辑</h2>
+<div class="code"><div class="code-head"><span class="fname">renderer.py</span><button class="copy">copy</button></div>
+<pre><code data-lang="python">if naming_style == "view" and sample_number == 4 and init_azimuth_angle == 0:
+    view_names = {0: "front", 1: "left", 2: "back", 3: "right"}
+    filename_base = view_names[idx]
+else:
+    filename_base = f"{object_name}_{idx}"
+</code></pre></div>
+<p><strong>约束</strong>：<code>view</code> 命名只在 <code>sample_number=4</code> 且 <code>init_azimuth_angle=0</code> 时有效。如果用户自定义了视角数量或起始角度，view 命名会 fallback 到 index，防止语义混乱。</p>
+
+<h2 id="s3">坐标系约定</h2>
+<p>在 Isaac Sim 的默认右手坐标系中（Z 向上）：</p>
+<ul>
+<li><strong>+X = Front</strong>：物体正面朝向 +X 方向时，azimuth=0° 看到的就是 front view</li>
+<li><strong>+Y = Left</strong>：从 +Y 方向看向原点，即物体的左侧</li>
+<li><strong>-X = Back</strong>：与 +X 相反</li>
+<li><strong>-Y = Right</strong>：与 +Y 相反</li>
+</ul>
+<div class="callout callout-warn">
+<strong>注意</strong>：这与某些 3D 软件（如 Blender 的 -Y front）不同。render-usd 遵循 Isaac Sim / USD 的坐标约定，+X 为 front。
+</div>
+
+<nav class="prevnext"></nav>
+</article></main><aside class="rail"><h4>On this page</h4><ul></ul></aside></div>
+<script src="../../content.js"></script><script src="../../assets/js/book.js"></script>
+</body></html>
